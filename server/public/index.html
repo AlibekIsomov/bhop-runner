@@ -257,6 +257,12 @@ async function submitScore(score, durationSeconds = 0){
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + authToken }
     });
+
+    if (!challengeResp.ok) {
+      console.warn('Challenge request failed with status:', challengeResp.status);
+      return;
+    }
+
     const challengeData = await challengeResp.json();
     if (!challengeData || !challengeData.nonce) return;
 
@@ -271,12 +277,17 @@ async function submitScore(score, durationSeconds = 0){
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify({ score, duration, timestamp, nonce, signature })
     });
-    const result = await resp.json();
-    if (result.is_new_high) {
-      fetchLeaderboard();
+    if (resp.ok) {
+      const result = await resp.json();
+      if (result.is_new_high) {
+        fetchLeaderboard();
+      }
+    } else {
+      console.warn('Score submission rejected with status:', resp.status);
     }
   } catch(e){ console.error('Score submit error:', e); }
 }
+
 
 
 

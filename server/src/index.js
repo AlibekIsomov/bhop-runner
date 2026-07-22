@@ -168,6 +168,8 @@ app.get('/api/leaderboard', (req, res) => {
 
 const crypto = require('crypto');
 const activeNonces = new Map(); // nonce -> { userId, createdAt }
+const userLastSubmit = new Map(); // userId -> lastTimestamp
+
 
 // Cleanup expired nonces every 30 seconds
 setInterval(() => {
