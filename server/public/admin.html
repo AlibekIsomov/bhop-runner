@@ -103,7 +103,7 @@
 <div id="access-denied" class="hidden">
   <div>
     <h2>⛔ Access Denied</h2>
-    <p style="opacity: .6; margin-bottom: 20px;">This Admin Panel is restricted to <strong>aisomov.dev@gmail.com</strong> only.</p>
+    <p style="opacity: .6; margin-bottom: 20px;">Administrator privileges required to access this panel.</p>
     <a href="/login.html" class="btn btn-danger" style="text-decoration: none; padding: 10px 20px;">Sign In as Admin</a>
   </div>
 </div>
@@ -114,10 +114,11 @@
     <h1>bhop_<span>admin panel</span></h1>
     <div class="user-badge">
       <img id="admin-av" src="" alt="">
-      <span id="admin-email">aisomov.dev@gmail.com</span>
+      <span id="admin-email">Admin</span>
       <a href="/" style="color: var(--orange); margin-left: 12px; text-decoration: none; font-size: 11px;">🎮 Go to Game</a>
     </div>
   </div>
+
 
   <!-- STATS OVERVIEW -->
   <div class="stats-grid">
@@ -190,17 +191,34 @@
 
 <script>
   const token = localStorage.getItem('bhop_token') || '';
-  const user = JSON.parse(localStorage.getItem('bhop_user') || 'null');
 
-  // Verify Admin email
-  if (!token || !user || !user.email || user.email.toLowerCase() !== 'aisomov.dev@gmail.com') {
-    document.getElementById('access-denied').classList.remove('hidden');
-  } else {
-    document.getElementById('admin-email').textContent = user.email;
-    if (user.avatar_url) document.getElementById('admin-av').src = user.avatar_url;
-    else document.getElementById('admin-av').style.display = 'none';
-    loadAdminData();
-  }
+  // Verify Admin via server profile endpoint
+  (async function checkAdminAuth() {
+    if (!token) {
+      document.getElementById('access-denied').classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const resp = await fetch('/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await resp.json();
+
+      if (resp.ok && data.user && data.user.email && data.user.email.toLowerCase() === 'aisomov.dev@gmail.com') {
+        document.getElementById('admin-email').textContent = data.user.email;
+        if (data.user.avatar_url) document.getElementById('admin-av').src = data.user.avatar_url;
+        else document.getElementById('admin-av').style.display = 'none';
+        localStorage.setItem('bhop_user', JSON.stringify(data.user));
+        loadAdminData();
+      } else {
+        document.getElementById('access-denied').classList.remove('hidden');
+      }
+    } catch(e) {
+      document.getElementById('access-denied').classList.remove('hidden');
+    }
+  })();
+
 
   async function loadAdminData() {
     try {

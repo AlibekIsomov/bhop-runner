@@ -360,10 +360,11 @@ const ADMIN_EMAIL = 'aisomov.dev@gmail.com';
 function requireAdmin(req, res, next) {
   const user = db.findUserById(req.user.id);
   if (!user || !user.email || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-    return res.status(403).json({ error: 'Access denied: Admin email (aisomov.dev@gmail.com) required' });
+    return res.status(403).json({ error: 'Access denied: Admin privileges required' });
   }
   next();
 }
+
 
 // Admin: Delete current user's score
 app.delete('/api/admin/my-score', authenticateToken, (req, res) => {
