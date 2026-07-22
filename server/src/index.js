@@ -6,12 +6,50 @@ const { OAuth2Client } = require('google-auth-library');
 const path = require('path');
 const db = require('./db');
 
+const http = require('http');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_bhop_runner';
 
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
+
+// Helper: Fetch IP Geo Location (City, Region, Country)
+async function getGeoLocation(ip) {
+  const cleanIp = (ip || '').replace(/^.*:/, ''); // strip IPv6 prefix if mapped
+  if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === 'localhost' || cleanIp.startsWith('192.168.') || cleanIp.startsWith('10.')) {
+    return { country: 'Uzbekistan', region: 'Tashkent', city: 'Tashkent' };
+  }
+
+  return new Promise((resolve) => {
+    const url = `http://ip-api.com/json/${cleanIp}?fields=status,country,regionName,city`;
+    http.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.status === 'success') {
+            resolve({
+              country: json.country || 'Uzbekistan',
+              region: json.regionName || 'Tashkent',
+              city: json.city || 'Tashkent'
+            });
+          } else {
+            resolve({ country: 'Uzbekistan', region: 'Tashkent', city: 'Tashkent' });
+          }
+        } catch(e) {
+          resolve({ country: 'Uzbekistan', region: 'Tashkent', city: 'Tashkent' });
+        }
+      });
+    }).on('error', () => {
+      resolve({ country: 'Uzbekistan', region: 'Tashkent', city: 'Tashkent' });
+    });
+  });
+}
+
 
 const oauth2Client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -103,6 +141,9 @@ app.get('/auth/google/callback', async (req, res) => {
       url: 'https://www.googleapis.com/oauth2/v2/userinfo'
     });
 
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.socket.remoteAddress || '';
+    const geo = await getGeoLocation(clientIp);
+
     const googleUser = userinfo.data;
     let user = db.findUserByGoogleId(googleUser.id);
 
@@ -112,9 +153,21 @@ app.get('/auth/google/callback', async (req, res) => {
         email: googleUser.email,
         google_id: googleUser.id,
         avatar_url: googleUser.picture,
-        username: googleUser.given_name || googleUser.name
+        username: googleUser.given_name || googleUser.name,
+        ip: clientIp,
+        country: geo.country,
+        region: geo.region,
+        city: geo.city
+      });
+    } else {
+      user = db.updateUserLocation(user.id, {
+        ip: clientIp,
+        country: geo.country,
+        region: geo.region,
+        city: geo.city
       });
     }
+
 
     const jwtToken = jwt.sign(
       { id: user.id, username: user.username, email: user.email },
@@ -130,22 +183,40 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
-// Dev/Guest Login
-app.post('/auth/dev-login', (req, res) => {
+// Dev / Guest Login (Fast testing in Godot without Google Cloud setup)
+app.post('/auth/dev-login', async (req, res) => {
   const { username } = req.body;
   if (!username || username.trim().length === 0) {
     return res.status(400).json({ error: 'Username is required' });
   }
 
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.socket.remoteAddress || '';
+  const geo = await getGeoLocation(clientIp);
+
   const cleanName = username.trim();
   let user = db.findUserByUsername(cleanName);
   if (!user) {
-    user = db.createUser({ username: cleanName, name: cleanName });
+    user = db.createUser({
+      username: cleanName,
+      name: cleanName,
+      ip: clientIp,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city
+    });
+  } else {
+    user = db.updateUserLocation(user.id, {
+      ip: clientIp,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city
+    });
   }
 
   const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '30d' });
   res.json({ token, user });
 });
+
 
 // Get current user profile
 app.get('/auth/me', authenticateToken, (req, res) => {
@@ -307,17 +378,29 @@ app.delete('/api/admin/reset-leaderboard', authenticateToken, requireAdmin, (req
   res.json({ success: true, message: 'Entire leaderboard has been reset by Admin' });
 });
 
-// Admin: Delete specific user's score by username (strictly aisomov.dev@gmail.com only)
-app.delete('/api/admin/delete-user/:username', authenticateToken, requireAdmin, (req, res) => {
-  const username = req.params.username;
-  const targetUser = db.findUserByUsername(username);
-  if (!targetUser) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  const deleted = db.deleteUserScore(targetUser.id);
-  res.json({ success: true, message: deleted ? `Score for ${username} deleted` : `No score found for ${username}` });
+// Admin: Get all users with IP, City, Region, Country and Best Score (aisomov.dev@gmail.com only)
+app.get('/api/admin/users', authenticateToken, requireAdmin, (req, res) => {
+  const users = db.getAllUsers();
+  res.json({ users });
+});
+
+// Admin: Ban/Unban user (aisomov.dev@gmail.com only)
+app.post('/api/admin/ban-user', authenticateToken, requireAdmin, (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+  const updatedUser = db.toggleBanUser(userId);
+  if (!updatedUser) return res.status(404).json({ error: 'User not found' });
+
+  console.log(`[ADMIN] User ${updatedUser.username} (${updatedUser.id}) ban status changed to ${updatedUser.is_banned}`);
+  res.json({
+    success: true,
+    is_banned: updatedUser.is_banned,
+    message: updatedUser.is_banned ? `User ${updatedUser.username} has been banned` : `User ${updatedUser.username} unbanned`
+  });
 });
 
 app.listen(PORT, () => {
   console.log(`Bhop Runner API Server running on port ${PORT}`);
 });
+

@@ -170,8 +170,13 @@ if (!authToken || !currentUser) {
   if (currentUser.email && currentUser.email.toLowerCase() === 'aisomov.dev@gmail.com') {
     const adminBtn = document.getElementById('admin-reset-btn');
     if (adminBtn) adminBtn.style.display = 'inline-block';
+    const nameEl = document.getElementById('user-name');
+    if (nameEl && !nameEl.innerHTML.includes('ADMIN')) {
+      nameEl.innerHTML += ` <a href="/admin.html" style="color:var(--orange); font-size:10px; text-decoration:none; margin-left:6px; pointer-events:auto;" target="_blank">⚙️ ADMIN</a>`;
+    }
   }
 })();
+
 
 
 function logoutUser(){

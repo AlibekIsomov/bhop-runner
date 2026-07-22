@@ -57,7 +57,7 @@ module.exports = {
     return memoryDb.users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
   },
 
-  createUser({ name, email, google_id = null, avatar_url = '', username = null }) {
+  createUser({ name, email, google_id = null, avatar_url = '', username = null, ip = '', country = '', region = '', city = '' }) {
     const user = {
       id: 'usr_' + Math.random().toString(36).substring(2, 11),
       username: username || name || 'Player_' + Math.floor(Math.random() * 8999 + 1000),
@@ -65,15 +65,63 @@ module.exports = {
       email: email || '',
       google_id,
       avatar_url,
-      created_at: new Date().toISOString()
+      ip,
+      country,
+      region,
+      city,
+      is_banned: false,
+      created_at: new Date().toISOString(),
+      last_login: new Date().toISOString()
     };
     memoryDb.users.push(user);
     save();
     return user;
   },
 
+  updateUserLocation(userId, { ip, country, region, city }) {
+    const user = memoryDb.users.find(u => u.id === userId);
+    if (user) {
+      if (ip) user.ip = ip;
+      if (country) user.country = country;
+      if (region) user.region = region;
+      if (city) user.city = city;
+      user.last_login = new Date().toISOString();
+      save();
+    }
+    return user;
+  },
+
+  toggleBanUser(userId) {
+    const user = memoryDb.users.find(u => u.id === userId);
+    if (user) {
+      user.is_banned = !user.is_banned;
+      // If banned, also remove their scores
+      if (user.is_banned) {
+        memoryDb.scores = memoryDb.scores.filter(s => s.user_id !== userId);
+      }
+      save();
+      return user;
+    }
+    return null;
+  },
+
+  getAllUsers() {
+    return memoryDb.users.map(u => {
+      const userScore = memoryDb.scores.find(s => s.user_id === u.id);
+      return {
+        ...u,
+        best_score: userScore ? userScore.score : 0
+      };
+    });
+  },
+
   // Scores / Leaderboard
   submitScore(userId, score) {
+    const user = memoryDb.users.find(u => u.id === userId);
+    if (user && user.is_banned) {
+      return null; // Banned users cannot submit scores
+    }
+
     const numericScore = parseFloat(score);
     if (isNaN(numericScore)) return null;
 
@@ -103,8 +151,13 @@ module.exports = {
   },
 
   getLeaderboard(limit = 50) {
-    // Sort scores descending
-    const sorted = [...memoryDb.scores]
+    // Filter out banned users and sort scores descending
+    const validScores = memoryDb.scores.filter(s => {
+      const user = memoryDb.users.find(u => u.id === s.user_id);
+      return user && !user.is_banned;
+    });
+
+    const sorted = [...validScores]
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
 
@@ -115,13 +168,19 @@ module.exports = {
         username: user ? user.username : 'Unknown',
         score: entry.score,
         avatar_url: user ? user.avatar_url : '',
+        location: user && user.city ? `${user.city}, ${user.region || user.country}` : (user?.country || 'Unknown'),
+        ip: user ? user.ip : '',
         date: entry.updated_at
       };
     });
   },
 
   getUserRank(userId) {
-    const sorted = [...memoryDb.scores].sort((a, b) => b.score - a.score);
+    const validScores = memoryDb.scores.filter(s => {
+      const user = memoryDb.users.find(u => u.id === s.user_id);
+      return user && !user.is_banned;
+    });
+    const sorted = [...validScores].sort((a, b) => b.score - a.score);
     const index = sorted.findIndex(s => s.user_id === userId);
     if (index === -1) return null;
     return {
@@ -143,4 +202,5 @@ module.exports = {
     return true;
   }
 };
+
 
