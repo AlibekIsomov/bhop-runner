@@ -23,4 +23,3 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 AuthManager="*res://scripts/auth_manager.gd"
 LeaderboardManager="*res://scripts/leaderboard_manager.gd"
 SaveData="*res://scripts/save_data.gd"
-
