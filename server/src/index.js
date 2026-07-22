@@ -36,10 +36,36 @@ function authenticateToken(req, res, next) {
   });
 }
 
+// Root welcome page
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Bhop Runner API</title>
+      <style>
+        body { font-family: sans-serif; text-align: center; padding: 60px; background: #0f172a; color: #f8fafc; }
+        .card { background: #1e293b; border-radius: 12px; padding: 40px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h1 { color: #38bdf8; margin-bottom: 10px; }
+        .badge { background: #10b981; color: #fff; padding: 6px 14px; border-radius: 20px; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>🏃 Bhop Runner API Server</h1>
+        <p>Status: <span class="badge">ONLINE</span></p>
+        <p>Godot 4 OAuth2 & Leaderboard backend is working properly.</p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // 1. Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
+
 
 // 2. Dev / Guest Login (Fast testing in Godot without Google Cloud setup)
 app.post('/auth/dev-login', (req, res) => {

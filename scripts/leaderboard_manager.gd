@@ -3,7 +3,8 @@ extends Node
 signal leaderboard_loaded(scores: Array)
 signal score_submitted(result: Dictionary)
 
-const SERVER_URL := "http://localhost:3000"
+var SERVER_URL: String = "http://localhost:3000" if OS.has_feature("editor") else "https://bh.yasuke.uz"
+
 
 func fetch_leaderboard(limit: int = 50) -> void:
 	var http := HTTPRequest.new()

@@ -4,8 +4,10 @@ extends Node
 signal login_status_changed(is_logged_in: bool, username: String)
 
 const SESSION_FILE := "user://session.json"
-const SERVER_URL := "http://localhost:3000"
 const LOCAL_PORT := 8989
+
+var SERVER_URL: String = "http://localhost:3000" if OS.has_feature("editor") else "https://bh.yasuke.uz"
+
 
 var is_logged_in: bool = false
 var auth_token: String = ""
