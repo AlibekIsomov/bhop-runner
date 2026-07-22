@@ -128,5 +128,19 @@ module.exports = {
       rank: index + 1,
       score: sorted[index].score
     };
+  },
+
+  deleteUserScore(userId) {
+    const initialLen = memoryDb.scores.length;
+    memoryDb.scores = memoryDb.scores.filter(s => s.user_id !== userId);
+    save();
+    return memoryDb.scores.length < initialLen;
+  },
+
+  resetAllScores() {
+    memoryDb.scores = [];
+    save();
+    return true;
   }
 };
+

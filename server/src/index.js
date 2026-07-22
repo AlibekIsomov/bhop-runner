@@ -123,7 +123,7 @@ app.get('/auth/google/callback', async (req, res) => {
     );
 
     // Redirect to login.html which stores token and redirects to game
-    res.redirect(`/login.html?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}&avatar=${encodeURIComponent(user.avatar_url || '')}`);
+    res.redirect(`/login.html?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}&avatar=${encodeURIComponent(user.avatar_url || '')}&email=${encodeURIComponent(user.email || '')}`);
   } catch (error) {
     console.error('Google OAuth error:', error);
     res.status(500).send('Authentication failed: ' + error.message);
@@ -167,16 +167,42 @@ app.get('/api/leaderboard', (req, res) => {
 });
 
 const crypto = require('crypto');
-const userLastSubmit = new Map();
+const activeNonces = new Map(); // nonce -> { userId, createdAt }
 
-// Submit Score (requires auth + Anti-Cheat validation)
+// Cleanup expired nonces every 30 seconds
+setInterval(() => {
+  const now = Date.now();
+  for (const [nonce, data] of activeNonces.entries()) {
+    if (now - data.createdAt > 15000) {
+      activeNonces.delete(nonce);
+    }
+  }
+}, 30000);
+
+// 1. Anti-Cheat: Request a single-use score submission Challenge Nonce
+app.post('/api/scores/challenge', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const now = Date.now();
+
+  // Rate limit challenge requests (max 1 challenge per 2 seconds)
+  const lastSubmit = userLastSubmit.get(userId) || 0;
+  if (now - lastSubmit < 2000) {
+    return res.status(429).json({ error: 'Anti-Cheat: Requesting challenge too frequently' });
+  }
+
+  const nonce = crypto.randomBytes(16).toString('hex');
+  activeNonces.set(nonce, { userId, createdAt: now });
+  res.json({ nonce });
+});
+
+// 2. Submit Score with Challenge Nonce + HMAC Verification
 app.post('/api/scores', authenticateToken, (req, res) => {
-  const { score, duration, timestamp, signature } = req.body;
+  const { score, duration, timestamp, nonce, signature } = req.body;
   const userId = req.user.id;
 
   // 1. Basic validation
-  if (score === undefined || score === null) {
-    return res.status(400).json({ error: 'Score is required' });
+  if (score === undefined || score === null || !nonce || !signature) {
+    return res.status(400).json({ error: 'Anti-Cheat: Missing required security payload' });
   }
 
   const numericScore = parseFloat(score);
@@ -187,37 +213,44 @@ app.post('/api/scores', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Invalid score' });
   }
 
-  // 2. Anti-Cheat: Rate limiting (min 2 seconds between score submissions per user)
-  const now = Date.now();
-  const lastSubmit = userLastSubmit.get(userId) || 0;
-  if (now - lastSubmit < 2000) {
-    return res.status(429).json({ error: 'Anti-Cheat: Submitting too frequently' });
+  // 2. Verify and immediately consume Single-Use Nonce (Prevents Replay Attacks)
+  const nonceData = activeNonces.get(nonce);
+  if (!nonceData) {
+    console.warn(`[Anti-Cheat] Invalid or expired nonce used by ${userId}.`);
+    return res.status(403).json({ error: 'Anti-Cheat: Invalid or expired challenge nonce' });
   }
-  userLastSubmit.set(userId, now);
 
-  // 3. Anti-Cheat: HMAC Signature verification (Prevents Postman/Console tampering)
-  if (!signature) {
-    return res.status(403).json({ error: 'Anti-Cheat: Security signature missing' });
+  // Single-use: Destroy nonce immediately so it can never be used again!
+  activeNonces.delete(nonce);
+
+  if (nonceData.userId !== userId) {
+    console.warn(`[Anti-Cheat] Nonce user mismatch for ${userId}.`);
+    return res.status(403).json({ error: 'Anti-Cheat: Nonce user mismatch' });
   }
+
+  // 3. Verify HMAC SHA-256 Signature (signed with authToken + nonce)
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
   const expectedSignature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(`${numericScore}:${numericDuration}:${numericTimestamp}`)
+    .createHmac('sha256', `${token}:${nonce}`)
+    .update(`${numericScore}:${numericDuration}:${numericTimestamp}:${nonce}`)
     .digest('hex');
 
   if (signature !== expectedSignature) {
-    console.warn(`[Anti-Cheat] Tampered score rejected for user ${userId}. Invalid signature.`);
-    return res.status(403).json({ error: 'Anti-Cheat: Score tampered or invalid signature' });
+    console.warn(`[Anti-Cheat] Tampered score rejected for user ${userId}. Signature mismatch.`);
+    return res.status(403).json({ error: 'Anti-Cheat: Signature verification failed (Score tampered)' });
   }
 
-  // 4. Anti-Cheat: Timestamp freshness check (within 60 seconds)
-  if (Math.abs(now - numericTimestamp) > 60000) {
+  // 4. Timestamp freshness check (within 15 seconds of nonce creation)
+  const now = Date.now();
+  if (Math.abs(now - numericTimestamp) > 15000) {
     return res.status(400).json({ error: 'Anti-Cheat: Expired timestamp' });
   }
 
-  // 5. Anti-Cheat: Sanity Check (Max impossible platform speed)
-  // Max possible speed in CS Bhop endless is ~2.0 platforms per second
-  const maxPossibleRate = 2.5; // max platforms per sec
+  // 5. Speed Sanity Check (Max physical limit: 4.0 platforms per second)
+  const maxPossibleRate = 4.0;
+
   if (numericScore > 5) {
     if (numericDuration <= 0) {
       return res.status(400).json({ error: 'Anti-Cheat: Invalid duration' });
@@ -229,7 +262,10 @@ app.post('/api/scores', authenticateToken, (req, res) => {
     }
   }
 
-  // Record legitimate score
+  // Record rate limit timestamp
+  userLastSubmit.set(userId, now);
+
+  // Record legitimate score in database
   const result = db.submitScore(userId, numericScore);
   if (!result) {
     return res.status(400).json({ error: 'Invalid score value' });
@@ -244,6 +280,41 @@ app.post('/api/scores', authenticateToken, (req, res) => {
   });
 });
 
+
+// ==================== ADMIN ENDPOINTS (aisomov.dev@gmail.com ONLY) ====================
+const ADMIN_EMAIL = 'aisomov.dev@gmail.com';
+
+function requireAdmin(req, res, next) {
+  const user = db.findUserById(req.user.id);
+  if (!user || !user.email || user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+    return res.status(403).json({ error: 'Access denied: Admin email (aisomov.dev@gmail.com) required' });
+  }
+  next();
+}
+
+// Admin: Delete current user's score
+app.delete('/api/admin/my-score', authenticateToken, (req, res) => {
+  const deleted = db.deleteUserScore(req.user.id);
+  res.json({ success: true, message: deleted ? 'Your score has been deleted' : 'No score found' });
+});
+
+// Admin: Reset entire leaderboard (strictly aisomov.dev@gmail.com only)
+app.delete('/api/admin/reset-leaderboard', authenticateToken, requireAdmin, (req, res) => {
+  db.resetAllScores();
+  console.log(`[ADMIN] Leaderboard reset by ${req.user.email}`);
+  res.json({ success: true, message: 'Entire leaderboard has been reset by Admin' });
+});
+
+// Admin: Delete specific user's score by username (strictly aisomov.dev@gmail.com only)
+app.delete('/api/admin/delete-user/:username', authenticateToken, requireAdmin, (req, res) => {
+  const username = req.params.username;
+  const targetUser = db.findUserByUsername(username);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  const deleted = db.deleteUserScore(targetUser.id);
+  res.json({ success: true, message: deleted ? `Score for ${username} deleted` : `No score found for ${username}` });
+});
 
 app.listen(PORT, () => {
   console.log(`Bhop Runner API Server running on port ${PORT}`);

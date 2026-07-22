@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>bhop_endless — Sign In</title>
+
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
   :root {
@@ -169,10 +171,12 @@
     localStorage.setItem('bhop_token', params.get('token'));
     localStorage.setItem('bhop_user', JSON.stringify({
       username: params.get('username') || 'Player',
-      avatar_url: params.get('avatar') || ''
+      avatar_url: params.get('avatar') || '',
+      email: params.get('email') || ''
     }));
     window.location.href = '/';
   }
+
 
   // Guest login
   document.getElementById('guestBtn').addEventListener('click', guestLogin);
