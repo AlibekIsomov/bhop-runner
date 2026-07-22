@@ -51,13 +51,14 @@
   /* ===== USER HUD ===== */
   #user-hud{position:fixed;top:14px;right:16px;color:var(--ink);font-size:12px;font-weight:700;
     text-transform:uppercase;letter-spacing:.1em;text-shadow:0 1px 3px rgba(0,0,0,.55);
-    display:flex;align-items:center;gap:10px;z-index:8;pointer-events:none}
+    display:flex;align-items:center;gap:10px;z-index:50;pointer-events:none}
   #user-hud img{width:28px;height:28px;border-radius:50%;border:2px solid var(--orange)}
   #user-hud .uname{color:var(--orange);font-size:14px}
+  #user-hud a{pointer-events:auto;cursor:pointer}
 
   /* ===== LEADERBOARD ===== */
   #lb-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(10,12,14,.7);backdrop-filter:blur(4px);z-index:20}
+    background:rgba(10,12,14,.7);backdrop-filter:blur(4px);z-index:60}
   #lb-panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
     border-radius:6px;padding:30px 36px 26px;max-width:480px;width:92%;color:var(--ink);
     max-height:72vh;display:flex;flex-direction:column;
@@ -113,9 +114,11 @@
     </table>
     <button class="menu-btn play" onclick="start()">Click to Play</button>
     <button class="menu-btn lb" onclick="openLB()">🏆 Leaderboard</button>
+    <button id="pause-admin-btn" class="menu-btn lb hidden" onclick="window.open('/admin.html', '_blank')">⚙️ Admin Panel</button>
     <button class="menu-btn logout" onclick="logoutUser()">Sign Out</button>
   </div>
 </div>
+
 
 <!-- LEADERBOARD -->
 <div id="lb-overlay" class="hidden">
@@ -170,12 +173,17 @@ if (!authToken || !currentUser) {
   if (currentUser.email && currentUser.email.toLowerCase() === 'aisomov.dev@gmail.com') {
     const adminBtn = document.getElementById('admin-reset-btn');
     if (adminBtn) adminBtn.style.display = 'inline-block';
+
+    const pauseAdminBtn = document.getElementById('pause-admin-btn');
+    if (pauseAdminBtn) pauseAdminBtn.classList.remove('hidden');
+
     const nameEl = document.getElementById('user-name');
     if (nameEl && !nameEl.innerHTML.includes('ADMIN')) {
       nameEl.innerHTML += ` <a href="/admin.html" style="color:var(--orange); font-size:10px; text-decoration:none; margin-left:6px; pointer-events:auto;" target="_blank">⚙️ ADMIN</a>`;
     }
   }
 })();
+
 
 
 
