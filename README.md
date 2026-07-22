@@ -1,72 +1,74 @@
-# 🏃 Bhop Runner
+# 🏃 Bhop Runner (`bhop_endless`)
 
-**Bhop Runner** — Godot 4 dvigatelida yaratilgan 3D Bunny Hop harakat mexanikasiga ega tezkor parkur o'yini. O'yinda platformalardan yiqilmasdan iloji boricha uzoqroqqa sakrab o'tish va global reytingda birinchi o'rinni egallash asosiy maqsad hisoblanadi!
-
----
-
-## 🖼️ O'yin lavhalari (Screenshots)
-
-| Gameplay (O'yin jarayoni) | Global Leaderboard (Rekordlar) |
-| :---: | :---: |
-| ![Gameplay Screenshot](docs/screenshots/gameplay.png) | ![Leaderboard Screenshot](docs/screenshots/leaderboard.png) |
-
-> 💡 *Eslatma: O'yin rasmlarini `docs/screenshots/gameplay.png` va `docs/screenshots/leaderboard.png` manzillariga joylashtirishingiz mumkin.*
+**Bhop Runner** — CS2 (Source Engine) uslubidagi 3D Bunny Hop harakat mexanikasiga ega tezkor brauzer parkur o'yini. O'yinda Three.js yordamida 3D Karambit Fade pichoq va sport qo'lqoplari render qilinadi. Cheksiz va tasodifiy generatsiya bo'ladigan neon platformalardan yiqilmasdan iloji boricha uzoqroqqa sakrab o'tish va global reytingda birinchi o'rinni egallash asosiy maqsad hisoblanadi!
 
 ---
 
-## 🎮 Boshqaruv tugmalari (Controls)
+## 🖼️ Screenshots
 
-| Tugma | Harakat / Vazifasi |
+| Gameplay | Global Leaderboard | Admin Dashboard |
+| :---: | :---: | :---: |
+| ![Gameplay](docs/screenshots/gameplay.png) | ![Leaderboard](docs/screenshots/leaderboard.png) | ![Admin Panel](docs/screenshots/admin.png) |
+
+> 💡 *Note: Add screenshots into `docs/screenshots/` directory.*
+
+---
+
+## 🎮 Controls
+
+| Key | Action |
 | :--- | :--- |
-| **`W` `A` `S` `D`** | Yo'nalish bo'ylab harakatlanish / Air Strafe |
-| **`SPACE` (Probel)** | Sakrash (Bunny Hop uchun ketma-ket bosing) |
-| **`L`** yoki **`TAB`** | Global Leaderboard (Rekordlar) oynasini ochish / yopish |
-| **`ESC`** | Sichqoncha kursorini ozod qilish / Pause |
+| **`W` `A` `S` `D`** | Move (Ground only — let go of `W` in the air) |
+| **`SPACE` (Hold)** | Auto Bunny-Hop on every landing |
+| **`Mouse`** | Air-Strafe: hold `A` + turn left, or `D` + turn right to gain velocity |
+| **`TAB` / `L`** | Open / Close Global Leaderboard |
+| **`ESC`** | Open Pause Menu / Release mouse pointer |
 
 ---
 
-## ✨ Asosiy xususiyatlari
+## ✨ Key Features
 
-- 🎯 **Bunny Hop Mexanikasi**: Tezlikni saqlab qolish va havodan harakatlanish (Air Strafe) tizimi.
-- 🛣️ **Procedural Yo'lakcha**: Har safar o'yinga kirganda cheksiz va tasodifiy generatsiya bo'luvchi yo'laklar.
-- 🔐 **OAuth2 Avtorizatsiya**: Google akkaunt orqali bir bosishda kirish yoki Test Kirish (Dev Login).
-- 🏆 **Global Leaderboard**: Barcha o'yinchilarning natijalari onlayn serverda saqlanadi va real vaqtda yangilanadi.
-- 💾 **Offline & Online Saqlash**: Internet bo'lmaganda ham lokal natijangiz saqlanib qoladi.
+- 🎯 **Authentic CS Movement**: Real Source-engine physics (gravity 800 u/s², jump 301.993, quake air-accelerate up to 1000+ u/s velocity).
+- 🔪 **Three.js 3D Viewmodel**: Real 3D Karambit Fade knife & sport gloves FBX model rendered dynamically on WebGL overlay with sway, bob, and drop animations.
+- 🔐 **Authentication Options**: Single-click **Google OAuth2** login or fast **Guest Login**.
+- 🛡️ **Airtight Anti-Cheat System**:
+  - **Single-Use Challenge Nonces** (`POST /api/scores/challenge`) to block replay attacks.
+  - **HMAC SHA-256 Signature Verification** to block browser DevTools console tampering & Postman cheating.
+  - **Speed-Rate Sanity Checks** (Max physical limit of 4.0 platforms/sec).
+- 📍 **IP & Geolocation Tracking**: Automatically captures IP addresses and locates city & region (e.g. Tashkent, Samarkand, Fergana, etc.) for both Guest and Google players.
+- ⚙️ **Admin Control Panel (`/admin.html`)**: Dedicated dashboard restricted strictly to Admin for managing players, IP locations, banning cheaters, and resetting scores.
 
 ---
 
-## 🛠️ Texnologik Stek (Tech Stack)
+## 🛠️ Tech Stack
 
-- **Game Engine**: Godot 4.x (GDScript)
+- **Frontend**: HTML5 Canvas2D + Three.js (WebGL 3D Viewmodel) + Vanilla CSS
 - **Backend API**: Node.js + Express.js
-- **Auth**: Google OAuth2 + JWT (JSON Web Token)
-- **Database**: File-backed JSON DB / SQLite
+- **Auth & Security**: Google OAuth2 + JWT + HMAC SHA-256 Challenge Nonce Anti-Cheat
+- **Geolocation**: IP-API / Geolocation Service
+- **Process Manager**: PM2 + Nginx Reverse Proxy
 
 ---
 
-## 🚀 Ishga Tushirish Ko'rsatmasi
+## 🚀 Local Setup & Run
 
-### 1. Backend Serverni Ishga Tushirish
-O'yinning rekordlar serverini ishga tushirish uchun:
-
+### 1. Install & Start Backend Server
 ```bash
-# Server papkasiga o'ting
+# Navigate to server directory
 cd server
 
-# Kutubxonalarni o'rnating
+# Install dependencies
 npm install
 
-# Serverni yurgizish (Default: http://localhost:3000)
+# Start development server (Default: http://localhost:3000)
 npm start
 ```
 
-### 2. O'yinni Yurgizish (Godot 4)
-1. [Godot 4 Engine](https://godotengine.org/) dasturini oching.
-2. `Import` tugmasini bosib, `d:/my-own/bhop-runner/project.godot` faylini tanlang.
-3. **F5** tugmasini bosing va o'yindan rohatlaning!
+### 2. Open Game in Browser
+Simply navigate to `http://localhost:3000` in your web browser!
 
 ---
 
-## 📝 Litsenziya
+## 📄 License
 
-Ushbu loyiha ochiq kodli hisoblanadi va shaxsiy yoki ta'lim maqsadlarida foydalanish uchun ochiq.
+This project is licensed under the [MIT License](LICENSE).
