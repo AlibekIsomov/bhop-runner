@@ -1,0 +1,17 @@
+{
+  "name": "bhop-runner-server",
+  "version": "1.0.0",
+  "description": "Backend API for Bhop Runner (OAuth2 + Leaderboard)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-auth-library": "^9.11.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

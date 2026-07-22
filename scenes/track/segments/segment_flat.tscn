@@ -1,0 +1,18 @@
+[gd_scene load_steps=1 format=3]
+
+[node name="SegmentFlat" type="Node3D"]
+
+[node name="Floor" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -20)
+size = Vector3(6, 1, 40)
+use_collision = true
+
+[node name="WallLeft" type="CSGBox3D" parent="."]
+position = Vector3(-3.25, 1, -20)
+size = Vector3(0.5, 3, 40)
+use_collision = true
+
+[node name="WallRight" type="CSGBox3D" parent="."]
+position = Vector3(3.25, 1, -20)
+size = Vector3(0.5, 3, 40)
+use_collision = true

@@ -1,0 +1,33 @@
+[gd_scene load_steps=1 format=3]
+
+[node name="SegmentPlatforms" type="Node3D"]
+
+[node name="PlatformA" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -2)
+size = Vector3(3.5, 1, 4)
+use_collision = true
+
+[node name="PlatformB" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -9)
+size = Vector3(3.5, 1, 4)
+use_collision = true
+
+[node name="PlatformC" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -16)
+size = Vector3(3.5, 1, 4)
+use_collision = true
+
+[node name="PlatformD" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -23)
+size = Vector3(3.5, 1, 4)
+use_collision = true
+
+[node name="PlatformE" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -30)
+size = Vector3(3.5, 1, 4)
+use_collision = true
+
+[node name="PlatformF" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -37.5)
+size = Vector3(3.5, 1, 5)
+use_collision = true

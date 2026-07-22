@@ -1,0 +1,26 @@
+# Godot 4 engine files
+.godot/
+*.translation
+
+# Server & Node.js dependencies
+node_modules/
+server/node_modules/
+server/data/*.json
+server/data/*.tmp
+
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Godot Export credentials / presets (optional)
+export_presets.cfg
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

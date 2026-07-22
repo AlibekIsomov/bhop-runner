@@ -1,0 +1,13 @@
+[gd_scene load_steps=1 format=3]
+
+[node name="SegmentGapMedium" type="Node3D"]
+
+[node name="Floor1" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -8)
+size = Vector3(6, 1, 16)
+use_collision = true
+
+[node name="Floor2" type="CSGBox3D" parent="."]
+position = Vector3(0, -0.5, -30)
+size = Vector3(6, 1, 20)
+use_collision = true
