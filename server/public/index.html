@@ -195,16 +195,35 @@ function closeLB(){
   lbOpen = false;
   document.getElementById('lb-overlay').classList.add('hidden');
 }
-async function submitScore(score){
-  if (!authToken) return;
+let runStartTime = Date.now();
+
+async function generateSignature(score, duration, timestamp) {
+  const secret = 'dev_secret_bhop_runner';
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false, ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(`${score}:${duration}:${timestamp}`));
+  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function submitScore(score, durationSeconds = 0){
+  if (!authToken || score <= 0) return;
   try {
+    const timestamp = Date.now();
+    const duration = parseFloat(durationSeconds) || 0.1;
+    const signature = await generateSignature(score, duration, timestamp);
+
     await fetch('/api/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
-      body: JSON.stringify({ score })
+      body: JSON.stringify({ score, duration, timestamp, signature })
     });
-  } catch(e){ console.error('Score submit:', e); }
+  } catch(e){ console.error('Score submit error:', e); }
 }
+
 
 // ==================== GAME ENGINE ====================
 const TICK=1/128, GRAV=800, JUMP=301.993, MAXSPEED=250, ACCEL=5.5,
@@ -245,13 +264,18 @@ function genPlat(){
   plats.push(p); lowest=Math.min(lowest,top);
 }
 function reset(){
-  if(platIdx > 0 && authToken) submitScore(platIdx);
+  if(platIdx > 0 && authToken){
+    const dur = Math.max(0.2, ((Date.now() - runStartTime) / 1000)).toFixed(2);
+    submitScore(platIdx, dur);
+  }
+  runStartTime = Date.now();
   plats=[{x:0,y:0,w:420,l:420,top:0,i:0}]; lowest=0;
   for(let i=0;i<12;i++)genPlat();
   P.x=0;P.y=-120;P.z=0;P.vx=P.vy=P.vz=0;P.ground=true;platIdx=0;
   document.getElementById('plat').textContent=0;
 }
 reset();
+
 
 // ---------- input ----------
 addEventListener('keydown',e=>{

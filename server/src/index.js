@@ -166,19 +166,76 @@ app.get('/api/leaderboard', (req, res) => {
   res.json({ leaderboard });
 });
 
-// Submit Score (requires auth)
+const crypto = require('crypto');
+const userLastSubmit = new Map();
+
+// Submit Score (requires auth + Anti-Cheat validation)
 app.post('/api/scores', authenticateToken, (req, res) => {
-  const { score } = req.body;
+  const { score, duration, timestamp, signature } = req.body;
+  const userId = req.user.id;
+
+  // 1. Basic validation
   if (score === undefined || score === null) {
     return res.status(400).json({ error: 'Score is required' });
   }
 
-  const result = db.submitScore(req.user.id, score);
+  const numericScore = parseFloat(score);
+  const numericDuration = parseFloat(duration) || 0;
+  const numericTimestamp = parseInt(timestamp) || 0;
+
+  if (isNaN(numericScore) || numericScore <= 0) {
+    return res.status(400).json({ error: 'Invalid score' });
+  }
+
+  // 2. Anti-Cheat: Rate limiting (min 2 seconds between score submissions per user)
+  const now = Date.now();
+  const lastSubmit = userLastSubmit.get(userId) || 0;
+  if (now - lastSubmit < 2000) {
+    return res.status(429).json({ error: 'Anti-Cheat: Submitting too frequently' });
+  }
+  userLastSubmit.set(userId, now);
+
+  // 3. Anti-Cheat: HMAC Signature verification (Prevents Postman/Console tampering)
+  if (!signature) {
+    return res.status(403).json({ error: 'Anti-Cheat: Security signature missing' });
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(`${numericScore}:${numericDuration}:${numericTimestamp}`)
+    .digest('hex');
+
+  if (signature !== expectedSignature) {
+    console.warn(`[Anti-Cheat] Tampered score rejected for user ${userId}. Invalid signature.`);
+    return res.status(403).json({ error: 'Anti-Cheat: Score tampered or invalid signature' });
+  }
+
+  // 4. Anti-Cheat: Timestamp freshness check (within 60 seconds)
+  if (Math.abs(now - numericTimestamp) > 60000) {
+    return res.status(400).json({ error: 'Anti-Cheat: Expired timestamp' });
+  }
+
+  // 5. Anti-Cheat: Sanity Check (Max impossible platform speed)
+  // Max possible speed in CS Bhop endless is ~2.0 platforms per second
+  const maxPossibleRate = 2.5; // max platforms per sec
+  if (numericScore > 5) {
+    if (numericDuration <= 0) {
+      return res.status(400).json({ error: 'Anti-Cheat: Invalid duration' });
+    }
+    const rate = numericScore / numericDuration;
+    if (rate > maxPossibleRate) {
+      console.warn(`[Anti-Cheat] Speed hack rejected for user ${userId}. Rate: ${rate.toFixed(2)} plat/sec.`);
+      return res.status(400).json({ error: 'Anti-Cheat: Physically impossible platform speed' });
+    }
+  }
+
+  // Record legitimate score
+  const result = db.submitScore(userId, numericScore);
   if (!result) {
     return res.status(400).json({ error: 'Invalid score value' });
   }
 
-  const userRank = db.getUserRank(req.user.id);
+  const userRank = db.getUserRank(userId);
   res.json({
     message: result.isNewHigh ? 'New high score!' : 'Score recorded',
     is_new_high: result.isNewHigh,
@@ -186,6 +243,7 @@ app.post('/api/scores', authenticateToken, (req, res) => {
     user_rank: userRank ? userRank.rank : null
   });
 });
+
 
 app.listen(PORT, () => {
   console.log(`Bhop Runner API Server running on port ${PORT}`);
