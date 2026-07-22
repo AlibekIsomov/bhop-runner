@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>bhop_endless</title>
@@ -10,16 +10,19 @@
   html,body{height:100%;margin:0;overflow:hidden;background:#241a36;
     font-family:"Stratum2","Arial Narrow",Arial,Helvetica,sans-serif;user-select:none}
   canvas{display:block;width:100vw;height:100vh;cursor:none}
+  #vm{position:fixed;inset:0;pointer-events:none;z-index:1}
   .hud{position:fixed;color:var(--ink);text-transform:uppercase;letter-spacing:.14em;
-    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none}
+    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none;z-index:2}
   #stats{top:14px;left:16px;font-size:13px;font-weight:700;line-height:1.9}
   #stats b{color:var(--orange);font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:.05em}
   #speed{bottom:34px;left:50%;transform:translateX(-50%);text-align:center}
   #speed .n{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.03em}
   #speed .u{font-size:11px;opacity:.75;margin-top:-4px}
   #tip{bottom:12px;left:16px;font-size:11px;opacity:.65;font-weight:700}
+
+  /* ===== PAUSE MENU ===== */
   #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(10,12,14,.45);backdrop-filter:blur(2px)}
+    background:rgba(10,12,14,.45);backdrop-filter:blur(2px);z-index:10}
   #panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
     padding:34px 44px 30px;max-width:420px;color:var(--ink)}
   #panel h1{margin:0;font-size:34px;font-weight:900;text-transform:lowercase;letter-spacing:.02em}
@@ -29,226 +32,160 @@
   #panel td{padding:5px 0;letter-spacing:.06em}
   #panel td:first-child{color:var(--orange);font-weight:900;text-transform:uppercase;
     padding-right:22px;white-space:nowrap;font-size:12px}
-  #play{margin-top:26px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.28em;
-    color:#111;background:var(--orange);padding:12px 0;text-align:center;animation:pulse 1.6s infinite;cursor:pointer}
+
+  .menu-btn{display:block;width:100%;padding:13px 0;margin-top:10px;font-size:13px;font-weight:900;
+    text-transform:uppercase;letter-spacing:.22em;border:none;border-radius:4px;cursor:pointer;
+    transition:all .15s;font-family:inherit}
+  .menu-btn.play{color:#111;background:var(--orange);animation:pulse 1.6s infinite}
+  .menu-btn.play:hover{filter:brightness(1.1)}
+  .menu-btn.lb{color:var(--ink);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+  .menu-btn.lb:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.2)}
+  .menu-btn.logout{color:var(--red);background:transparent;border:1px solid rgba(217,72,59,.25);font-size:11px;margin-top:16px}
+  .menu-btn.logout:hover{background:rgba(217,72,59,.1);border-color:rgba(217,72,59,.5)}
   @keyframes pulse{50%{opacity:.72}}
-  @media (prefers-reduced-motion: reduce){#play{animation:none}}
+  @media(prefers-reduced-motion:reduce){.menu-btn.play{animation:none}}
   .hidden{display:none!important}
 
-  /* ===== AUTH OVERLAY ===== */
-  #auth-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(10,12,14,.85);backdrop-filter:blur(6px);z-index:100}
-  #auth-panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
-    padding:40px 48px 36px;max-width:400px;color:var(--ink);text-align:center}
-  #auth-panel h1{margin:0 0 6px;font-size:30px;font-weight:900;text-transform:lowercase;letter-spacing:.02em}
-  #auth-panel h1 span{color:var(--orange)}
-  #auth-panel .sub{margin:0 0 28px;font-size:11px;text-transform:uppercase;letter-spacing:.22em;opacity:.6}
-  .auth-btn{display:block;width:100%;padding:14px 0;margin-bottom:12px;font-size:14px;font-weight:900;
-    text-transform:uppercase;letter-spacing:.2em;border:none;border-radius:4px;cursor:pointer;
-    transition:all .2s}
-  .auth-btn.google{background:#4285f4;color:#fff}
-  .auth-btn.google:hover{background:#3367d6}
-  .auth-btn.guest{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid rgba(255,255,255,.15)}
-  .auth-btn.guest:hover{background:rgba(255,255,255,.14)}
-  #guest-name{width:100%;padding:10px 14px;margin-bottom:12px;background:rgba(255,255,255,.06);
-    border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--ink);font-size:14px;
-    font-family:inherit;outline:none;box-sizing:border-box}
-  #guest-name:focus{border-color:var(--orange)}
-  .or-divider{color:rgba(255,255,255,.3);font-size:11px;text-transform:uppercase;letter-spacing:.3em;
-    margin:18px 0;position:relative}
-  .or-divider::before,.or-divider::after{content:'';position:absolute;top:50%;width:35%;height:1px;
-    background:rgba(255,255,255,.15)}
-  .or-divider::before{left:0}
-  .or-divider::after{right:0}
-
-  /* ===== USER INFO HUD ===== */
+  /* ===== USER HUD ===== */
   #user-hud{position:fixed;top:14px;right:16px;color:var(--ink);font-size:12px;font-weight:700;
     text-transform:uppercase;letter-spacing:.1em;text-shadow:0 1px 3px rgba(0,0,0,.55);
-    display:flex;align-items:center;gap:10px;z-index:50}
+    display:flex;align-items:center;gap:10px;z-index:8;pointer-events:none}
   #user-hud img{width:28px;height:28px;border-radius:50%;border:2px solid var(--orange)}
   #user-hud .uname{color:var(--orange);font-size:14px}
-  #user-hud .logout{cursor:pointer;opacity:.5;font-size:10px;letter-spacing:.15em;
-    padding:4px 8px;border:1px solid rgba(255,255,255,.2);border-radius:3px;pointer-events:auto}
-  #user-hud .logout:hover{opacity:1;border-color:var(--red);color:var(--red)}
 
   /* ===== LEADERBOARD ===== */
   #lb-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(10,12,14,.7);backdrop-filter:blur(3px);z-index:90}
+    background:rgba(10,12,14,.7);backdrop-filter:blur(4px);z-index:20}
   #lb-panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
-    padding:30px 36px;max-width:460px;width:90%;color:var(--ink);max-height:70vh;overflow-y:auto}
-  #lb-panel h2{margin:0 0 16px;font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:.15em;
+    border-radius:6px;padding:30px 36px 26px;max-width:480px;width:92%;color:var(--ink);
+    max-height:72vh;display:flex;flex-direction:column;
+    box-shadow:0 16px 48px rgba(0,0,0,.5),0 0 60px rgba(255,130,245,.06)}
+  #lb-panel .lb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  #lb-panel h2{margin:0;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.15em;
     color:var(--orange)}
-  #lb-panel .lb-close{float:right;cursor:pointer;color:rgba(255,255,255,.4);font-size:18px;font-weight:900}
-  #lb-panel .lb-close:hover{color:var(--red)}
+  .lb-close{cursor:pointer;color:rgba(255,255,255,.35);font-size:20px;font-weight:900;
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+    border-radius:4px;transition:all .15s}
+  .lb-close:hover{color:var(--red);background:rgba(217,72,59,.1)}
+  .lb-scroll{overflow-y:auto;flex:1}
   #lb-table{width:100%;border-collapse:collapse;font-size:13px}
-  #lb-table th{text-align:left;padding:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.15em;
-    color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)}
-  #lb-table td{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  #lb-table th{text-align:left;padding:8px 0 6px;font-size:10px;text-transform:uppercase;
+    letter-spacing:.18em;color:rgba(255,255,255,.35);border-bottom:1px solid rgba(255,255,255,.08)}
+  #lb-table td{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
   #lb-table tr.me td{color:#7fd06a;font-weight:900}
-  .lb-rank{width:36px;color:var(--orange);font-weight:900}
-  .lb-empty{text-align:center;opacity:.4;padding:20px 0;font-size:13px}
-  .lb-hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);
-    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;
-    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none;z-index:50}
+  .lb-rank{width:36px;color:var(--orange);font-weight:900;font-variant-numeric:tabular-nums}
+  .lb-score{text-align:right;font-variant-numeric:tabular-nums}
+  .lb-empty{text-align:center;opacity:.35;padding:28px 0;font-size:13px;letter-spacing:.1em}
+  .lb-hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.3);
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.22em;
+    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none;z-index:8}
 </style>
 </head>
 <body>
 
-<!-- AUTH LOGIN SCREEN -->
-<div id="auth-overlay">
-  <div id="auth-panel">
-    <h1>bhop_<span>endless</span></h1>
-    <p class="sub">counter-strike movement · random course</p>
-    <button class="auth-btn google" onclick="loginGoogle()">🔑 Google bilan kirish</button>
-    <div class="or-divider">yoki</div>
-    <input type="text" id="guest-name" placeholder="Ismingizni kiriting..." maxlength="20">
-    <button class="auth-btn guest" onclick="loginGuest()">👤 Mehmon sifatida o'ynash</button>
-  </div>
-</div>
-
-<!-- GAME HUD -->
 <canvas id="cv"></canvas>
+<canvas id="vm"></canvas>
+
+<!-- HUD -->
 <div class="hud" id="stats">PLATFORM <b id="plat">0</b><br>BEST <b id="best">0</b></div>
 <div class="hud" id="speed"><div class="n" id="vel">0</div><div class="u">velocity u/s</div></div>
 <div class="hud" id="tip">hold SPACE · in air hold A+turn left / D+turn right · don't hold W in air</div>
-<div class="lb-hint">TAB — leaderboard</div>
+<div class="lb-hint">TAB — leaderboard · ESC — menu</div>
 
-<!-- USER HUD (top-right) -->
+<!-- User HUD -->
 <div id="user-hud" class="hidden">
   <img id="user-avatar" src="" alt="">
   <span class="uname" id="user-name"></span>
-  <span class="logout" onclick="logoutUser()">CHIQISH</span>
 </div>
 
-<!-- GAME START OVERLAY -->
-<div id="overlay" class="hidden">
+<!-- PAUSE MENU -->
+<div id="overlay">
   <div id="panel">
     <h1>bhop_<span>endless</span></h1>
     <p class="sub">counter-strike movement · random course</p>
     <table>
       <tr><td>W A S D</td><td>move (ground only — let go of W in air)</td></tr>
       <tr><td>Space (hold)</td><td>auto bunny-hop on every landing</td></tr>
-      <tr><td>Mouse</td><td>air-strafe: hold A and turn left, or D and turn right, to gain speed</td></tr>
+      <tr><td>Mouse</td><td>air-strafe: hold A+left / D+right to gain speed</td></tr>
       <tr><td>Fall</td><td>run restarts from spawn</td></tr>
     </table>
-    <div id="play">click to play</div>
+    <button class="menu-btn play" onclick="start()">Click to Play</button>
+    <button class="menu-btn lb" onclick="openLB()">🏆 Leaderboard</button>
+    <button class="menu-btn logout" onclick="logoutUser()">Sign Out</button>
   </div>
 </div>
 
-<!-- LEADERBOARD OVERLAY -->
+<!-- LEADERBOARD -->
 <div id="lb-overlay" class="hidden">
   <div id="lb-panel">
-    <span class="lb-close" onclick="closeLB()">✕</span>
-    <h2>🏆 Global Leaderboard</h2>
-    <table id="lb-table">
-      <thead><tr><th class="lb-rank">#</th><th>O'yinchi</th><th style="text-align:right">Rekord</th></tr></thead>
-      <tbody id="lb-body"></tbody>
-    </table>
+    <div class="lb-header">
+      <h2>🏆 Global Leaderboard</h2>
+      <span class="lb-close" onclick="closeLB()">✕</span>
+    </div>
+    <div class="lb-scroll">
+      <table id="lb-table">
+        <thead><tr><th class="lb-rank">#</th><th>Player</th><th class="lb-score">Best</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
+
+<!-- Three.js & Models -->
+<script src="js/three.min.js"></script>
+<script src="js/fflate.min.js"></script>
+<script src="js/FBXLoader.js"></script>
+<script src="js/models.js"></script>
+<script src="js/viewmodel.js"></script>
 
 <script>
 'use strict';
 
-// ==================== AUTH SYSTEM ====================
-const API_BASE = '';  // same origin
-let authToken = localStorage.getItem('bhop_token') || '';
-let currentUser = JSON.parse(localStorage.getItem('bhop_user') || 'null');
+// ==================== AUTH CHECK ====================
+const authToken = localStorage.getItem('bhop_token') || '';
+const currentUser = JSON.parse(localStorage.getItem('bhop_user') || 'null');
 
-// Check URL params for OAuth callback redirect
-(function checkOAuthCallback(){
-  const params = new URLSearchParams(location.search);
-  if(params.has('token')){
-    authToken = params.get('token');
-    const username = params.get('username') || 'Player';
-    const avatar = params.get('avatar') || '';
-    currentUser = { username, avatar_url: avatar };
-    localStorage.setItem('bhop_token', authToken);
-    localStorage.setItem('bhop_user', JSON.stringify(currentUser));
-    // Clean URL
-    history.replaceState(null, '', '/');
-  }
+if (!authToken || !currentUser) {
+  window.location.href = '/login.html';
+}
+
+// Show user info
+(function showUserHud(){
+  if (!currentUser) return;
+  const hud = document.getElementById('user-hud');
+  hud.classList.remove('hidden');
+  document.getElementById('user-name').textContent = currentUser.username || 'Player';
+  const av = document.getElementById('user-avatar');
+  if (currentUser.avatar_url) { av.src = currentUser.avatar_url; }
+  else { av.style.display = 'none'; }
 })();
 
-function loginGoogle(){
-  window.location.href = API_BASE + '/auth/google';
-}
-
-async function loginGuest(){
-  const name = document.getElementById('guest-name').value.trim();
-  if(!name){ document.getElementById('guest-name').focus(); return; }
-  try {
-    const resp = await fetch(API_BASE + '/auth/dev-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: name })
-    });
-    const data = await resp.json();
-    if(data.token){
-      authToken = data.token;
-      currentUser = data.user;
-      localStorage.setItem('bhop_token', authToken);
-      localStorage.setItem('bhop_user', JSON.stringify(currentUser));
-      enterGame();
-    }
-  } catch(e){ console.error('Guest login failed:', e); }
-}
-
 function logoutUser(){
-  authToken = '';
-  currentUser = null;
   localStorage.removeItem('bhop_token');
   localStorage.removeItem('bhop_user');
-  setPlaying(false);
-  document.getElementById('auth-overlay').classList.remove('hidden');
-  document.getElementById('overlay').classList.add('hidden');
-  document.getElementById('user-hud').classList.add('hidden');
-}
-
-function enterGame(){
-  document.getElementById('auth-overlay').classList.add('hidden');
-  document.getElementById('overlay').classList.remove('hidden');
-  // Show user HUD
-  const userHud = document.getElementById('user-hud');
-  userHud.classList.remove('hidden');
-  document.getElementById('user-name').textContent = currentUser.username || 'Player';
-  const avatarEl = document.getElementById('user-avatar');
-  if(currentUser.avatar_url){
-    avatarEl.src = currentUser.avatar_url;
-    avatarEl.style.display = '';
-  } else {
-    avatarEl.style.display = 'none';
-  }
-  fetchLeaderboard();
-}
-
-// Auto-enter if already logged in
-if(authToken && currentUser){
-  enterGame();
+  window.location.href = '/login.html';
 }
 
 // ==================== LEADERBOARD ====================
 let lbOpen = false;
 async function fetchLeaderboard(){
   try {
-    const resp = await fetch(API_BASE + '/api/leaderboard?limit=50');
+    const resp = await fetch('/api/leaderboard?limit=50');
     const data = await resp.json();
     renderLeaderboard(data.leaderboard || []);
-  } catch(e){ console.error('LB fetch error:', e); }
+  } catch(e){ console.error('LB fetch:', e); }
 }
-
 function renderLeaderboard(scores){
   const tbody = document.getElementById('lb-body');
-  if(!scores.length){
-    tbody.innerHTML = '<tr><td colspan="3" class="lb-empty">Hozircha rekordlar yo\'q</td></tr>';
+  if (!scores.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="lb-empty">No scores yet — be the first!</td></tr>';
     return;
   }
   tbody.innerHTML = scores.map(s => {
     const isMe = currentUser && s.username === currentUser.username;
-    return `<tr class="${isMe?'me':''}"><td class="lb-rank">${s.rank}</td><td>${s.username}</td><td style="text-align:right;font-variant-numeric:tabular-nums">${s.score} plat</td></tr>`;
+    return `<tr class="${isMe?'me':''}"><td class="lb-rank">${s.rank}</td><td>${s.username}</td><td class="lb-score">${s.score} plat</td></tr>`;
   }).join('');
 }
-
 function openLB(){
   lbOpen = true;
   document.getElementById('lb-overlay').classList.remove('hidden');
@@ -258,29 +195,29 @@ function closeLB(){
   lbOpen = false;
   document.getElementById('lb-overlay').classList.add('hidden');
 }
-
 async function submitScore(score){
-  if(!authToken) return;
+  if (!authToken) return;
   try {
-    await fetch(API_BASE + '/api/scores', {
+    await fetch('/api/scores', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + authToken
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify({ score })
     });
-  } catch(e){ console.error('Score submit error:', e); }
+  } catch(e){ console.error('Score submit:', e); }
 }
 
-// ==================== CS MOVEMENT GAME ====================
+// ==================== GAME ENGINE ====================
 const TICK=1/128, GRAV=800, JUMP=301.993, MAXSPEED=250, ACCEL=5.5,
       FRICTION=5.2, STOPSPEED=80, AIRACCEL=12, AIRCAP=30, EYE=64, RADIUS=16;
 const SENS=0.0022, FOV=Math.PI/2;
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let VM=null;
+try{VM=initViewmodel(document.getElementById('vm'));}
+catch(e){document.getElementById('vm').remove();}
 let W=0,H=0,FOCAL=0;
-function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;FOCAL=(W/2)/Math.tan(FOV/2);}
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;FOCAL=(W/2)/Math.tan(FOV/2);
+  if(VM)VM.resize(W,H);}
 addEventListener('resize',resize);resize();
 
 // ---------- state ----------
@@ -308,10 +245,7 @@ function genPlat(){
   plats.push(p); lowest=Math.min(lowest,top);
 }
 function reset(){
-  // Submit score before resetting if player reached any platform
-  if(platIdx > 0 && authToken){
-    submitScore(platIdx);
-  }
+  if(platIdx > 0 && authToken) submitScore(platIdx);
   plats=[{x:0,y:0,w:420,l:420,top:0,i:0}]; lowest=0;
   for(let i=0;i<12;i++)genPlat();
   P.x=0;P.y=-120;P.z=0;P.vx=P.vy=P.vz=0;P.ground=true;platIdx=0;
@@ -323,14 +257,9 @@ reset();
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space')e.preventDefault();
-  if(e.code==='Escape')setPlaying(false);
-  if(e.code==='Tab'){
-    e.preventDefault();
-    if(lbOpen) closeLB(); else openLB();
-  }
-  if(e.code==='KeyL'){
-    if(lbOpen) closeLB(); else openLB();
-  }
+  if(e.code==='Escape'){ if(lbOpen) closeLB(); else setPlaying(false); }
+  if(e.code==='Tab'){ e.preventDefault(); if(lbOpen) closeLB(); else openLB(); }
+  if(e.code==='KeyL' && !playing){ if(lbOpen) closeLB(); else openLB(); }
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 function setPlaying(on){
@@ -338,16 +267,11 @@ function setPlaying(on){
   document.getElementById('overlay').classList.toggle('hidden',on);
 }
 function start(){
-  if(!authToken || !currentUser) return;   // must be logged in
-  if(lbOpen) return;                       // don't start while LB open
+  if(lbOpen) return;
   setPlaying(true);
-  try{
-    const p=cv.requestPointerLock();
-    if(p&&p.catch)p.catch(()=>{});
-  }catch(e){}
+  try{const p=cv.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(e){}
 }
 cv.addEventListener('click',start);
-document.getElementById('overlay').addEventListener('click',start);
 document.addEventListener('pointerlockchange',()=>{
   if(document.pointerLockElement!==cv&&playing)setPlaying(false);
 });
@@ -429,9 +353,26 @@ function tick(){
     }
   }else if(P.ground){P.ground=false;}
 
+  // side collision
+  for(const q of plats){
+    if(P.z>=q.top||P.z<q.top-900)continue;
+    const dx=P.x-q.x, dy=P.y-q.y,
+          px=q.w/2+RADIUS-Math.abs(dx),
+          py=q.l/2+RADIUS-Math.abs(dy);
+    if(px<=0||py<=0)continue;
+    if(px<py){
+      const s=dx<0?-1:1;
+      P.x=q.x+s*(q.w/2+RADIUS);
+      if(P.vx*s<0)P.vx=0;
+    }else{
+      const s=dy<0?-1:1;
+      P.y=q.y+s*(q.l/2+RADIUS);
+      if(P.vy*s<0)P.vy=0;
+    }
+  }
+
   while(plats[plats.length-6].y<P.y+800)genPlat();
   if(plats.length>60)plats.splice(0,plats.length-60);
-
   if(P.z<lowest-320)reset();
 }
 
@@ -503,7 +444,15 @@ function render(){
         fogMix([58,108,224],d));
     }
   }
-  drawHands(performance.now());
+  const t=performance.now();
+  if(VM&&VM.isReady()){
+    swayX*=.9;swayY*=.9;
+    const vv=Math.hypot(P.vx,P.vy),
+          bob=P.ground?Math.sin(t/130)*Math.min(9,vv*.025):0,
+          drop=Math.max(-8,Math.min(12,-P.vz*.02));
+    VM.update({t,swayX,swayY,bob,drop});
+  }else drawHands(t);
+  // crosshair
   ctx.strokeStyle='rgba(80,255,80,.95)';ctx.lineWidth=2;
   const cxx=W/2,cyy=H/2,gap=5,len=8;
   ctx.beginPath();
@@ -517,7 +466,7 @@ function render(){
   el.style.color=v<270?'#e8f1f2':v<420?'#e0a13d':'#7fd06a';
 }
 
-// ---------- viewmodel ----------
+// ---------- fallback 2D viewmodel ----------
 function drawHands(t){
   swayX*=.9;swayY*=.9;
   const v=Math.hypot(P.vx,P.vy),
@@ -529,45 +478,31 @@ function drawHands(t){
   ctx.scale(s,s);ctx.rotate(-.06+swayX*.002);
   ctx.lineJoin='round';ctx.lineCap='round';
   ctx.fillStyle='#181c2a';
-  ctx.beginPath();
-  ctx.moveTo(150,60);ctx.quadraticCurveTo(70,30,34,-78);
-  ctx.lineTo(118,-104);ctx.quadraticCurveTo(230,-10,260,60);
-  ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(150,60);ctx.quadraticCurveTo(70,30,34,-78);
+  ctx.lineTo(118,-104);ctx.quadraticCurveTo(230,-10,260,60);ctx.closePath();ctx.fill();
   ctx.fillStyle='#232840';
-  ctx.beginPath();
-  ctx.moveTo(40,-70);ctx.quadraticCurveTo(120,-110,124,-100);
-  ctx.lineTo(150,-60);ctx.quadraticCurveTo(90,-50,52,-46);
-  ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(40,-70);ctx.quadraticCurveTo(120,-110,124,-100);
+  ctx.lineTo(150,-60);ctx.quadraticCurveTo(90,-50,52,-46);ctx.closePath();ctx.fill();
   ctx.strokeStyle='#3a4152';ctx.lineWidth=11;
   ctx.beginPath();ctx.arc(52,-176,17,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='#2b303f';
-  ctx.beginPath();
-  ctx.moveTo(38,-162);ctx.lineTo(66,-166);ctx.lineTo(86,-66);ctx.lineTo(56,-58);
+  ctx.beginPath();ctx.moveTo(38,-162);ctx.lineTo(66,-166);ctx.lineTo(86,-66);ctx.lineTo(56,-58);
   ctx.closePath();ctx.fill();
   const bg=ctx.createLinearGradient(-60,-60,90,-10);
   bg.addColorStop(0,'#e8ecf4');bg.addColorStop(.6,'#aab2c4');bg.addColorStop(1,'#6d7688');
   ctx.fillStyle=bg;
-  ctx.beginPath();
-  ctx.moveTo(80,-70);
-  ctx.quadraticCurveTo(30,-6,-64,-24);
-  ctx.quadraticCurveTo(-30,-54,10,-64);
-  ctx.quadraticCurveTo(40,-72,58,-84);
-  ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(80,-70);ctx.quadraticCurveTo(30,-6,-64,-24);
+  ctx.quadraticCurveTo(-30,-54,10,-64);ctx.quadraticCurveTo(40,-72,58,-84);ctx.closePath();ctx.fill();
   ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2.5;
   ctx.beginPath();ctx.moveTo(76,-72);ctx.quadraticCurveTo(28,-10,-58,-26);ctx.stroke();
   ctx.fillStyle='#20263c';
-  ctx.beginPath();
-  ctx.moveTo(24,-160);ctx.quadraticCurveTo(-16,-140,-14,-96);
+  ctx.beginPath();ctx.moveTo(24,-160);ctx.quadraticCurveTo(-16,-140,-14,-96);
   ctx.quadraticCurveTo(-12,-58,36,-52);ctx.lineTo(110,-70);
   ctx.quadraticCurveTo(126,-130,96,-158);ctx.closePath();ctx.fill();
   ctx.fillStyle='#2a3150';
-  for(let i=0;i<4;i++){
-    ctx.beginPath();
-    ctx.ellipse(-4+i*4,-138+i*26,17,14,-.35,0,Math.PI*2);ctx.fill();
-  }
+  for(let i=0;i<4;i++){ctx.beginPath();ctx.ellipse(-4+i*4,-138+i*26,17,14,-.35,0,Math.PI*2);ctx.fill();}
   ctx.fillStyle='#242b48';
-  ctx.beginPath();
-  ctx.ellipse(66,-158,26,15,-.5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(66,-158,26,15,-.5,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=3;
   ctx.beginPath();ctx.moveTo(6,-130);ctx.quadraticCurveTo(40,-120,92,-134);ctx.stroke();
   ctx.restore();
@@ -584,6 +519,5 @@ function frame(t){
 }
 requestAnimationFrame(frame);
 </script>
-
 </body>
 </html>

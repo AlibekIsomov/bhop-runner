@@ -122,8 +122,8 @@ app.get('/auth/google/callback', async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // Redirect back to game page with token
-    res.redirect(`/?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}&avatar=${encodeURIComponent(user.avatar_url || '')}`);
+    // Redirect to login.html which stores token and redirects to game
+    res.redirect(`/login.html?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}&avatar=${encodeURIComponent(user.avatar_url || '')}`);
   } catch (error) {
     console.error('Google OAuth error:', error);
     res.status(500).send('Authentication failed: ' + error.message);
