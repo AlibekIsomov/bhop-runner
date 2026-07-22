@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const path = require('path');
 const db = require('./db');
 
 const app = express();
@@ -36,18 +37,11 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// COOP & COEP Headers for Godot 4 Web (HTML5) compatibility
-app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  next();
-});
-
-const path = require('path');
+// Serve static game files from public/
 const publicPath = path.join(__dirname, '../public');
 app.use(express.static(publicPath));
 
-// Status page at /status
+// ==================== STATUS ====================
 app.get('/status', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -73,47 +67,29 @@ app.get('/status', (req, res) => {
   `);
 });
 
-// 1. Health check
+// ==================== HEALTH CHECK ====================
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// ==================== AUTH: Google OAuth2 ====================
 
-
-// 2. Dev / Guest Login (Fast testing in Godot without Google Cloud setup)
-app.post('/auth/dev-login', (req, res) => {
-  const { username } = req.body;
-  if (!username || username.trim().length === 0) {
-    return res.status(400).json({ error: 'Username is required' });
-  }
-
-  const cleanName = username.trim();
-  let user = db.findUserByUsername(cleanName);
-  if (!user) {
-    user = db.createUser({ username: cleanName, name: cleanName });
-  }
-
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user });
-});
-
-// 3. Initiate Google OAuth2
+// Initiate Google OAuth2 (from browser game)
 app.get('/auth/google', (req, res) => {
-  const godotPort = req.query.godot_port || '8989';
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: [
       'https://www.googleapis.com/auth/userinfo.profile',
       'https://www.googleapis.com/auth/userinfo.email'
     ],
-    state: godotPort
+    state: 'web_game'
   });
   res.redirect(url);
 });
 
-// 4. Google OAuth2 Callback
+// Google OAuth2 Callback — redirect back to game with JWT in URL
 app.get('/auth/google/callback', async (req, res) => {
-  const { code, state: godotPort } = req.query;
+  const { code } = req.query;
 
   if (!code) {
     return res.status(400).send('OAuth authorization code missing.');
@@ -123,7 +99,6 @@ app.get('/auth/google/callback', async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
-    // Fetch user info from Google
     const userinfo = await oauth2Client.request({
       url: 'https://www.googleapis.com/oauth2/v2/userinfo'
     });
@@ -147,41 +122,32 @@ app.get('/auth/google/callback', async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    // Attempt redirecting back to Godot local listener
-    const targetGodotPort = godotPort || '8989';
-    const redirectUrl = `http://localhost:${targetGodotPort}/callback?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}`;
-
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bhop Runner - Login Successful</title>
-        <style>
-          body { font-family: sans-serif; text-align: center; padding: 50px; background: #121214; color: #fff; }
-          .card { background: #1e1e24; border-radius: 12px; padding: 30px; display: inline-block; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-          h2 { color: #4facfe; }
-          .token-box { background: #2a2a36; padding: 10px; border-radius: 6px; word-break: break-all; margin-top: 15px; font-mono; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h2>Login Successful!</h2>
-          <p>Welcome, <strong>${user.username}</strong>. You can close this window and return to the game.</p>
-          <div class="token-box">Redirecting to Bhop Runner game...</div>
-        </div>
-        <script>
-          window.location.href = "${redirectUrl}";
-        </script>
-      </body>
-      </html>
-    `);
+    // Redirect back to game page with token
+    res.redirect(`/?token=${encodeURIComponent(jwtToken)}&username=${encodeURIComponent(user.username)}&avatar=${encodeURIComponent(user.avatar_url || '')}`);
   } catch (error) {
     console.error('Google OAuth error:', error);
     res.status(500).send('Authentication failed: ' + error.message);
   }
 });
 
-// 5. Get current user profile
+// Dev/Guest Login
+app.post('/auth/dev-login', (req, res) => {
+  const { username } = req.body;
+  if (!username || username.trim().length === 0) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+
+  const cleanName = username.trim();
+  let user = db.findUserByUsername(cleanName);
+  if (!user) {
+    user = db.createUser({ username: cleanName, name: cleanName });
+  }
+
+  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ token, user });
+});
+
+// Get current user profile
 app.get('/auth/me', authenticateToken, (req, res) => {
   const user = db.findUserById(req.user.id);
   if (!user) {
@@ -191,14 +157,16 @@ app.get('/auth/me', authenticateToken, (req, res) => {
   res.json({ user, rank: userRank });
 });
 
-// 6. Get Leaderboard (Top scores)
+// ==================== LEADERBOARD ====================
+
+// Get Leaderboard (Top scores)
 app.get('/api/leaderboard', (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const leaderboard = db.getLeaderboard(limit);
   res.json({ leaderboard });
 });
 
-// 7. Submit Score
+// Submit Score (requires auth)
 app.post('/api/scores', authenticateToken, (req, res) => {
   const { score } = req.body;
   if (score === undefined || score === null) {
@@ -221,5 +189,4 @@ app.post('/api/scores', authenticateToken, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Bhop Runner API Server running on port ${PORT}`);
-  console.log(`Dev login endpoint: POST http://localhost:${PORT}/auth/dev-login`);
 });

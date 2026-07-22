@@ -1,220 +1,589 @@
-<!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>Bhop Runner</title>
-		<style>
-html, body, #canvas {
-	margin: 0;
-	padding: 0;
-	border: 0;
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>bhop_endless</title>
+<style>
+  :root{
+    --sand:#c2ad85; --orange:#e0a13d; --ink:#e8f1f2; --panel:rgba(16,18,20,.82); --red:#d9483b;
+  }
+  html,body{height:100%;margin:0;overflow:hidden;background:#241a36;
+    font-family:"Stratum2","Arial Narrow",Arial,Helvetica,sans-serif;user-select:none}
+  canvas{display:block;width:100vw;height:100vh;cursor:none}
+  .hud{position:fixed;color:var(--ink);text-transform:uppercase;letter-spacing:.14em;
+    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none}
+  #stats{top:14px;left:16px;font-size:13px;font-weight:700;line-height:1.9}
+  #stats b{color:var(--orange);font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:.05em}
+  #speed{bottom:34px;left:50%;transform:translateX(-50%);text-align:center}
+  #speed .n{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:.03em}
+  #speed .u{font-size:11px;opacity:.75;margin-top:-4px}
+  #tip{bottom:12px;left:16px;font-size:11px;opacity:.65;font-weight:700}
+  #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,12,14,.45);backdrop-filter:blur(2px)}
+  #panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
+    padding:34px 44px 30px;max-width:420px;color:var(--ink)}
+  #panel h1{margin:0;font-size:34px;font-weight:900;text-transform:lowercase;letter-spacing:.02em}
+  #panel h1 span{color:var(--orange)}
+  #panel p.sub{margin:4px 0 22px;font-size:12px;text-transform:uppercase;letter-spacing:.22em;opacity:.7}
+  #panel table{border-collapse:collapse;font-size:13px;width:100%}
+  #panel td{padding:5px 0;letter-spacing:.06em}
+  #panel td:first-child{color:var(--orange);font-weight:900;text-transform:uppercase;
+    padding-right:22px;white-space:nowrap;font-size:12px}
+  #play{margin-top:26px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.28em;
+    color:#111;background:var(--orange);padding:12px 0;text-align:center;animation:pulse 1.6s infinite;cursor:pointer}
+  @keyframes pulse{50%{opacity:.72}}
+  @media (prefers-reduced-motion: reduce){#play{animation:none}}
+  .hidden{display:none!important}
+
+  /* ===== AUTH OVERLAY ===== */
+  #auth-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,12,14,.85);backdrop-filter:blur(6px);z-index:100}
+  #auth-panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
+    padding:40px 48px 36px;max-width:400px;color:var(--ink);text-align:center}
+  #auth-panel h1{margin:0 0 6px;font-size:30px;font-weight:900;text-transform:lowercase;letter-spacing:.02em}
+  #auth-panel h1 span{color:var(--orange)}
+  #auth-panel .sub{margin:0 0 28px;font-size:11px;text-transform:uppercase;letter-spacing:.22em;opacity:.6}
+  .auth-btn{display:block;width:100%;padding:14px 0;margin-bottom:12px;font-size:14px;font-weight:900;
+    text-transform:uppercase;letter-spacing:.2em;border:none;border-radius:4px;cursor:pointer;
+    transition:all .2s}
+  .auth-btn.google{background:#4285f4;color:#fff}
+  .auth-btn.google:hover{background:#3367d6}
+  .auth-btn.guest{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid rgba(255,255,255,.15)}
+  .auth-btn.guest:hover{background:rgba(255,255,255,.14)}
+  #guest-name{width:100%;padding:10px 14px;margin-bottom:12px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.15);border-radius:4px;color:var(--ink);font-size:14px;
+    font-family:inherit;outline:none;box-sizing:border-box}
+  #guest-name:focus{border-color:var(--orange)}
+  .or-divider{color:rgba(255,255,255,.3);font-size:11px;text-transform:uppercase;letter-spacing:.3em;
+    margin:18px 0;position:relative}
+  .or-divider::before,.or-divider::after{content:'';position:absolute;top:50%;width:35%;height:1px;
+    background:rgba(255,255,255,.15)}
+  .or-divider::before{left:0}
+  .or-divider::after{right:0}
+
+  /* ===== USER INFO HUD ===== */
+  #user-hud{position:fixed;top:14px;right:16px;color:var(--ink);font-size:12px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.1em;text-shadow:0 1px 3px rgba(0,0,0,.55);
+    display:flex;align-items:center;gap:10px;z-index:50}
+  #user-hud img{width:28px;height:28px;border-radius:50%;border:2px solid var(--orange)}
+  #user-hud .uname{color:var(--orange);font-size:14px}
+  #user-hud .logout{cursor:pointer;opacity:.5;font-size:10px;letter-spacing:.15em;
+    padding:4px 8px;border:1px solid rgba(255,255,255,.2);border-radius:3px;pointer-events:auto}
+  #user-hud .logout:hover{opacity:1;border-color:var(--red);color:var(--red)}
+
+  /* ===== LEADERBOARD ===== */
+  #lb-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,12,14,.7);backdrop-filter:blur(3px);z-index:90}
+  #lb-panel{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-top:3px solid var(--orange);
+    padding:30px 36px;max-width:460px;width:90%;color:var(--ink);max-height:70vh;overflow-y:auto}
+  #lb-panel h2{margin:0 0 16px;font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:.15em;
+    color:var(--orange)}
+  #lb-panel .lb-close{float:right;cursor:pointer;color:rgba(255,255,255,.4);font-size:18px;font-weight:900}
+  #lb-panel .lb-close:hover{color:var(--red)}
+  #lb-table{width:100%;border-collapse:collapse;font-size:13px}
+  #lb-table th{text-align:left;padding:6px 0;font-size:11px;text-transform:uppercase;letter-spacing:.15em;
+    color:rgba(255,255,255,.4);border-bottom:1px solid rgba(255,255,255,.1)}
+  #lb-table td{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  #lb-table tr.me td{color:#7fd06a;font-weight:900}
+  .lb-rank{width:36px;color:var(--orange);font-weight:900}
+  .lb-empty{text-align:center;opacity:.4;padding:20px 0;font-size:13px}
+  .lb-hint{position:fixed;top:14px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;
+    text-shadow:0 1px 3px rgba(0,0,0,.55);pointer-events:none;z-index:50}
+</style>
+</head>
+<body>
+
+<!-- AUTH LOGIN SCREEN -->
+<div id="auth-overlay">
+  <div id="auth-panel">
+    <h1>bhop_<span>endless</span></h1>
+    <p class="sub">counter-strike movement · random course</p>
+    <button class="auth-btn google" onclick="loginGoogle()">🔑 Google bilan kirish</button>
+    <div class="or-divider">yoki</div>
+    <input type="text" id="guest-name" placeholder="Ismingizni kiriting..." maxlength="20">
+    <button class="auth-btn guest" onclick="loginGuest()">👤 Mehmon sifatida o'ynash</button>
+  </div>
+</div>
+
+<!-- GAME HUD -->
+<canvas id="cv"></canvas>
+<div class="hud" id="stats">PLATFORM <b id="plat">0</b><br>BEST <b id="best">0</b></div>
+<div class="hud" id="speed"><div class="n" id="vel">0</div><div class="u">velocity u/s</div></div>
+<div class="hud" id="tip">hold SPACE · in air hold A+turn left / D+turn right · don't hold W in air</div>
+<div class="lb-hint">TAB — leaderboard</div>
+
+<!-- USER HUD (top-right) -->
+<div id="user-hud" class="hidden">
+  <img id="user-avatar" src="" alt="">
+  <span class="uname" id="user-name"></span>
+  <span class="logout" onclick="logoutUser()">CHIQISH</span>
+</div>
+
+<!-- GAME START OVERLAY -->
+<div id="overlay" class="hidden">
+  <div id="panel">
+    <h1>bhop_<span>endless</span></h1>
+    <p class="sub">counter-strike movement · random course</p>
+    <table>
+      <tr><td>W A S D</td><td>move (ground only — let go of W in air)</td></tr>
+      <tr><td>Space (hold)</td><td>auto bunny-hop on every landing</td></tr>
+      <tr><td>Mouse</td><td>air-strafe: hold A and turn left, or D and turn right, to gain speed</td></tr>
+      <tr><td>Fall</td><td>run restarts from spawn</td></tr>
+    </table>
+    <div id="play">click to play</div>
+  </div>
+</div>
+
+<!-- LEADERBOARD OVERLAY -->
+<div id="lb-overlay" class="hidden">
+  <div id="lb-panel">
+    <span class="lb-close" onclick="closeLB()">✕</span>
+    <h2>🏆 Global Leaderboard</h2>
+    <table id="lb-table">
+      <thead><tr><th class="lb-rank">#</th><th>O'yinchi</th><th style="text-align:right">Rekord</th></tr></thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ==================== AUTH SYSTEM ====================
+const API_BASE = '';  // same origin
+let authToken = localStorage.getItem('bhop_token') || '';
+let currentUser = JSON.parse(localStorage.getItem('bhop_user') || 'null');
+
+// Check URL params for OAuth callback redirect
+(function checkOAuthCallback(){
+  const params = new URLSearchParams(location.search);
+  if(params.has('token')){
+    authToken = params.get('token');
+    const username = params.get('username') || 'Player';
+    const avatar = params.get('avatar') || '';
+    currentUser = { username, avatar_url: avatar };
+    localStorage.setItem('bhop_token', authToken);
+    localStorage.setItem('bhop_user', JSON.stringify(currentUser));
+    // Clean URL
+    history.replaceState(null, '', '/');
+  }
+})();
+
+function loginGoogle(){
+  window.location.href = API_BASE + '/auth/google';
 }
 
-body {
-	color: white;
-	background-color: black;
-	overflow: hidden;
-	touch-action: none;
+async function loginGuest(){
+  const name = document.getElementById('guest-name').value.trim();
+  if(!name){ document.getElementById('guest-name').focus(); return; }
+  try {
+    const resp = await fetch(API_BASE + '/auth/dev-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: name })
+    });
+    const data = await resp.json();
+    if(data.token){
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem('bhop_token', authToken);
+      localStorage.setItem('bhop_user', JSON.stringify(currentUser));
+      enterGame();
+    }
+  } catch(e){ console.error('Guest login failed:', e); }
 }
 
-#canvas {
-	display: block;
+function logoutUser(){
+  authToken = '';
+  currentUser = null;
+  localStorage.removeItem('bhop_token');
+  localStorage.removeItem('bhop_user');
+  setPlaying(false);
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('user-hud').classList.add('hidden');
 }
 
-#canvas:focus {
-	outline: none;
+function enterGame(){
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('overlay').classList.remove('hidden');
+  // Show user HUD
+  const userHud = document.getElementById('user-hud');
+  userHud.classList.remove('hidden');
+  document.getElementById('user-name').textContent = currentUser.username || 'Player';
+  const avatarEl = document.getElementById('user-avatar');
+  if(currentUser.avatar_url){
+    avatarEl.src = currentUser.avatar_url;
+    avatarEl.style.display = '';
+  } else {
+    avatarEl.style.display = 'none';
+  }
+  fetchLeaderboard();
 }
 
-#status, #status-splash, #status-progress {
-	position: absolute;
-	left: 0;
-	right: 0;
+// Auto-enter if already logged in
+if(authToken && currentUser){
+  enterGame();
 }
 
-#status, #status-splash {
-	top: 0;
-	bottom: 0;
+// ==================== LEADERBOARD ====================
+let lbOpen = false;
+async function fetchLeaderboard(){
+  try {
+    const resp = await fetch(API_BASE + '/api/leaderboard?limit=50');
+    const data = await resp.json();
+    renderLeaderboard(data.leaderboard || []);
+  } catch(e){ console.error('LB fetch error:', e); }
 }
 
-#status {
-	background-color: #242424;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	visibility: hidden;
+function renderLeaderboard(scores){
+  const tbody = document.getElementById('lb-body');
+  if(!scores.length){
+    tbody.innerHTML = '<tr><td colspan="3" class="lb-empty">Hozircha rekordlar yo\'q</td></tr>';
+    return;
+  }
+  tbody.innerHTML = scores.map(s => {
+    const isMe = currentUser && s.username === currentUser.username;
+    return `<tr class="${isMe?'me':''}"><td class="lb-rank">${s.rank}</td><td>${s.username}</td><td style="text-align:right;font-variant-numeric:tabular-nums">${s.score} plat</td></tr>`;
+  }).join('');
 }
 
-#status-splash {
-	max-height: 100%;
-	max-width: 100%;
-	margin: auto;
+function openLB(){
+  lbOpen = true;
+  document.getElementById('lb-overlay').classList.remove('hidden');
+  fetchLeaderboard();
+}
+function closeLB(){
+  lbOpen = false;
+  document.getElementById('lb-overlay').classList.add('hidden');
 }
 
-#status-splash.show-image--false {
-	display: none;
+async function submitScore(score){
+  if(!authToken) return;
+  try {
+    await fetch(API_BASE + '/api/scores', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authToken
+      },
+      body: JSON.stringify({ score })
+    });
+  } catch(e){ console.error('Score submit error:', e); }
 }
 
-#status-splash.fullsize--true {
-	height: 100%;
-	width: 100%;
-	object-fit: contain;
+// ==================== CS MOVEMENT GAME ====================
+const TICK=1/128, GRAV=800, JUMP=301.993, MAXSPEED=250, ACCEL=5.5,
+      FRICTION=5.2, STOPSPEED=80, AIRACCEL=12, AIRCAP=30, EYE=64, RADIUS=16;
+const SENS=0.0022, FOV=Math.PI/2;
+
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let W=0,H=0,FOCAL=0;
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;FOCAL=(W/2)/Math.tan(FOV/2);}
+addEventListener('resize',resize);resize();
+
+// ---------- state ----------
+const P={x:0,y:0,z:0,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:true};
+const keys={};
+let plats=[], lowest=0, platIdx=0, best=+(localStorage.bhopBest||0), playing=false;
+document.getElementById('best').textContent=best;
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function shade(i){
+  const t=0.92+((i*2654435761)>>>28)/16*0.08;
+  return [236*t,232*t,246*t];
+}
+function genPlat(){
+  const i=plats.length, d=Math.min(1,i/40);
+  const prev=plats[i-1];
+  const base=rnd(120,175)-45*d, r=Math.random();
+  let w,l;
+  if(r<0.3){w=base*2.2;l=base*0.7;}
+  else if(r<0.6){w=base*0.7;l=base*2.2;}
+  else{w=base;l=base;}
+  const gap=rnd(100+60*d,180+110*d), side=rnd(-1,1)*(20+110*d);
+  const top=prev.top+rnd(-42,16);
+  const p={x:prev.x+side,y:prev.y+prev.l/2+gap+l/2,w,l,top,i};
+  plats.push(p); lowest=Math.min(lowest,top);
+}
+function reset(){
+  // Submit score before resetting if player reached any platform
+  if(platIdx > 0 && authToken){
+    submitScore(platIdx);
+  }
+  plats=[{x:0,y:0,w:420,l:420,top:0,i:0}]; lowest=0;
+  for(let i=0;i<12;i++)genPlat();
+  P.x=0;P.y=-120;P.z=0;P.vx=P.vy=P.vz=0;P.ground=true;platIdx=0;
+  document.getElementById('plat').textContent=0;
+}
+reset();
+
+// ---------- input ----------
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='Space')e.preventDefault();
+  if(e.code==='Escape')setPlaying(false);
+  if(e.code==='Tab'){
+    e.preventDefault();
+    if(lbOpen) closeLB(); else openLB();
+  }
+  if(e.code==='KeyL'){
+    if(lbOpen) closeLB(); else openLB();
+  }
+});
+addEventListener('keyup',e=>keys[e.code]=false);
+function setPlaying(on){
+  playing=on;
+  document.getElementById('overlay').classList.toggle('hidden',on);
+}
+function start(){
+  if(!authToken || !currentUser) return;   // must be logged in
+  if(lbOpen) return;                       // don't start while LB open
+  setPlaying(true);
+  try{
+    const p=cv.requestPointerLock();
+    if(p&&p.catch)p.catch(()=>{});
+  }catch(e){}
+}
+cv.addEventListener('click',start);
+document.getElementById('overlay').addEventListener('click',start);
+document.addEventListener('pointerlockchange',()=>{
+  if(document.pointerLockElement!==cv&&playing)setPlaying(false);
+});
+let swayX=0,swayY=0;
+addEventListener('mousemove',e=>{
+  if(!playing)return;
+  P.yaw+=e.movementX*SENS;
+  P.pitch=Math.max(-1.45,Math.min(1.45,P.pitch-e.movementY*SENS));
+  swayX=Math.max(-26,Math.min(26,swayX+e.movementX*.18));
+  swayY=Math.max(-16,Math.min(16,swayY+e.movementY*.14));
+});
+
+// ---------- tiny audio ----------
+let AC=null;
+function blip(f,dur,vol){
+  try{
+    AC=AC||new AudioContext();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.frequency.value=f;o.type='triangle';
+    g.gain.setValueAtTime(vol,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
+    o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+dur);
+  }catch(e){}
 }
 
-#status-splash.use-filter--false {
-	image-rendering: pixelated;
+// ---------- physics ----------
+function accelerate(wx,wy,wishspeed,accel){
+  const cur=P.vx*wx+P.vy*wy, add=wishspeed-cur;
+  if(add<=0)return;
+  const a=Math.min(accel*wishspeed*TICK,add);
+  P.vx+=a*wx;P.vy+=a*wy;
+}
+function tick(){
+  let f=(keys.KeyW?1:0)-(keys.KeyS?1:0), s=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  const sy=Math.sin(P.yaw),cy=Math.cos(P.yaw);
+  let wx=cy*s+sy*f, wy=-sy*s+cy*f;
+  const wl=Math.hypot(wx,wy); if(wl>0){wx/=wl;wy/=wl;}
+
+  if(P.ground){
+    if(keys.Space){
+      P.vz=JUMP;P.ground=false;blip(rnd(520,560),.06,.05);
+    }else{
+      const sp=Math.hypot(P.vx,P.vy);
+      if(sp>0){
+        const drop=Math.max(sp,STOPSPEED)*FRICTION*TICK,
+              ns=Math.max(0,sp-drop)/sp;
+        P.vx*=ns;P.vy*=ns;
+      }
+      if(wl>0)accelerate(wx,wy,MAXSPEED,ACCEL);
+    }
+  }
+  if(!P.ground){
+    if(wl>0){
+      const cur=P.vx*wx+P.vy*wy, add=AIRCAP-cur;
+      if(add>0){
+        const a=Math.min(AIRACCEL*MAXSPEED*TICK,add);
+        P.vx+=a*wx;P.vy+=a*wy;
+      }
+    }
+    P.vz-=GRAV*TICK;
+  }
+
+  const oz=P.z;
+  P.x+=P.vx*TICK;P.y+=P.vy*TICK;P.z+=P.vz*TICK;
+
+  let on=null;
+  for(const q of plats){
+    if(Math.abs(P.x-q.x)>q.w/2+RADIUS||Math.abs(P.y-q.y)>q.l/2+RADIUS)continue;
+    if(P.vz<=0&&oz>=q.top-0.01&&P.z<=q.top){on=q;break;}
+    if(P.ground&&Math.abs(P.z-q.top)<2){on=q;break;}
+  }
+  if(on){
+    if(!P.ground){blip(180,.05,.04);}
+    P.z=on.top;P.vz=Math.max(0,P.vz);P.ground=true;
+    if(on.i>platIdx){
+      platIdx=on.i;document.getElementById('plat').textContent=platIdx;
+      if(platIdx>best){best=platIdx;localStorage.bhopBest=best;
+        document.getElementById('best').textContent=best;}
+    }
+  }else if(P.ground){P.ground=false;}
+
+  while(plats[plats.length-6].y<P.y+800)genPlat();
+  if(plats.length>60)plats.splice(0,plats.length-60);
+
+  if(P.z<lowest-320)reset();
 }
 
-#status-progress, #status-notice {
-	display: none;
+// ---------- renderer ----------
+const HAZE=[104,52,128];
+function fogMix(c,d){
+  const t=1-Math.exp(-d/2800);
+  return `rgb(${c[0]+(HAZE[0]-c[0])*t|0},${c[1]+(HAZE[1]-c[1])*t|0},${c[2]+(HAZE[2]-c[2])*t|0})`;
+}
+function toCam(px,py,pz,sy,cy,sp,cp,ex,ey,ez){
+  const dx=px-ex,dy=py-ey,dz=pz-ez;
+  const x1=dx*cy-dy*sy, y1=dx*sy+dy*cy;
+  return [x1, y1*cp+dz*sp, dz*cp-y1*sp];
+}
+function drawFace(pts,fill,stroke){
+  const out=[];
+  for(let i=0;i<pts.length;i++){
+    const a=pts[i],b=pts[(i+1)%pts.length];
+    if(a[1]>1)out.push(a);
+    if((a[1]>1)!==(b[1]>1)){
+      const t=(1-a[1])/(b[1]-a[1]);
+      out.push([a[0]+(b[0]-a[0])*t,1,a[2]+(b[2]-a[2])*t]);
+    }
+  }
+  if(out.length<3)return;
+  ctx.beginPath();
+  for(let i=0;i<out.length;i++){
+    const q=out[i],sx=W/2+q[0]*FOCAL/q[1],sy=H/2-q[2]*FOCAL/q[1];
+    i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);
+  }
+  ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
+}
+function render(){
+  const sy=Math.sin(P.yaw),cy=Math.cos(P.yaw),
+        sp=Math.sin(P.pitch),cp=Math.cos(P.pitch),
+        ex=P.x,ey=P.y,ez=P.z+EYE;
+  const hy=Math.max(-2*H,Math.min(3*H,H/2+Math.tan(P.pitch)*FOCAL));
+  let g=ctx.createLinearGradient(0,0,0,Math.max(hy,1));
+  g.addColorStop(0,'rgb(32,24,48)');g.addColorStop(1,'rgb(104,52,128)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(hy<H){
+    g=ctx.createLinearGradient(0,hy,0,H);
+    g.addColorStop(0,'rgb(214,88,205)');g.addColorStop(1,'rgb(42,22,52)');
+    ctx.fillStyle=g;ctx.fillRect(0,hy,W,H-hy);
+  }
+  if(hy>-H&&hy<2*H){
+    const gg=ctx.createRadialGradient(W/2,hy,0,W/2,hy,H*.6);
+    gg.addColorStop(0,'rgba(255,130,245,.35)');gg.addColorStop(1,'rgba(255,130,245,0)');
+    ctx.fillStyle=gg;ctx.fillRect(0,0,W,H);
+  }
+  const sorted=[...plats].sort((a,b)=>
+    (Math.abs(b.y-ey)+Math.abs(b.x-ex))-(Math.abs(a.y-ey)+Math.abs(a.x-ex)));
+  for(const q of sorted){
+    const x0=q.x-q.w/2,x1=q.x+q.w/2,y0=q.y-q.l/2,y1=q.y+q.l/2,
+          zt=q.top,zb=q.top-900, c=shade(q.i),
+          d=Math.hypot(q.x-ex,q.y-ey),
+          C=(px,py,pz)=>toCam(px,py,pz,sy,cy,sp,cp,ex,ey,ez);
+    const dark=c.map(v=>v*.62), mid=c.map(v=>v*.78);
+    if(ex<x0)drawFace([C(x0,y0,zt),C(x0,y1,zt),C(x0,y1,zb),C(x0,y0,zb)],fogMix(mid,d));
+    if(ex>x1)drawFace([C(x1,y0,zt),C(x1,y1,zt),C(x1,y1,zb),C(x1,y0,zb)],fogMix(mid,d));
+    if(ey<y0)drawFace([C(x0,y0,zt),C(x1,y0,zt),C(x1,y0,zb),C(x0,y0,zb)],fogMix(dark,d));
+    if(ey>y1)drawFace([C(x0,y1,zt),C(x1,y1,zt),C(x1,y1,zb),C(x0,y1,zb)],fogMix(dark,d));
+    if(ez>zt){
+      drawFace([C(x0,y0,zt),C(x1,y0,zt),C(x1,y1,zt),C(x0,y1,zt)],
+        fogMix(c,d),fogMix(c.map(v=>v*.55),d));
+      const m=Math.min(q.w,q.l)*.18;
+      drawFace([C(x0+m,y0+m,zt),C(x1-m,y0+m,zt),C(x1-m,y1-m,zt),C(x0+m,y1-m,zt)],
+        fogMix([58,108,224],d));
+    }
+  }
+  drawHands(performance.now());
+  ctx.strokeStyle='rgba(80,255,80,.95)';ctx.lineWidth=2;
+  const cxx=W/2,cyy=H/2,gap=5,len=8;
+  ctx.beginPath();
+  ctx.moveTo(cxx-gap-len,cyy);ctx.lineTo(cxx-gap,cyy);
+  ctx.moveTo(cxx+gap,cyy);ctx.lineTo(cxx+gap+len,cyy);
+  ctx.moveTo(cxx,cyy-gap-len);ctx.lineTo(cxx,cyy-gap);
+  ctx.moveTo(cxx,cyy+gap);ctx.lineTo(cxx,cyy+gap+len);
+  ctx.stroke();
+  const v=Math.hypot(P.vx,P.vy)|0, el=document.getElementById('vel');
+  el.textContent=v;
+  el.style.color=v<270?'#e8f1f2':v<420?'#e0a13d':'#7fd06a';
 }
 
-#status-progress {
-	bottom: 10%;
-	width: 50%;
-	margin: 0 auto;
+// ---------- viewmodel ----------
+function drawHands(t){
+  swayX*=.9;swayY*=.9;
+  const v=Math.hypot(P.vx,P.vy),
+        bob=P.ground?Math.sin(t/130)*Math.min(9,v*.025):0,
+        drop=Math.max(-14,Math.min(22,-P.vz*.03));
+  ctx.save();
+  ctx.translate(W*.74+swayX,H+swayY+bob+drop+10);
+  const s=Math.min(W,H)/430;
+  ctx.scale(s,s);ctx.rotate(-.06+swayX*.002);
+  ctx.lineJoin='round';ctx.lineCap='round';
+  ctx.fillStyle='#181c2a';
+  ctx.beginPath();
+  ctx.moveTo(150,60);ctx.quadraticCurveTo(70,30,34,-78);
+  ctx.lineTo(118,-104);ctx.quadraticCurveTo(230,-10,260,60);
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle='#232840';
+  ctx.beginPath();
+  ctx.moveTo(40,-70);ctx.quadraticCurveTo(120,-110,124,-100);
+  ctx.lineTo(150,-60);ctx.quadraticCurveTo(90,-50,52,-46);
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#3a4152';ctx.lineWidth=11;
+  ctx.beginPath();ctx.arc(52,-176,17,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='#2b303f';
+  ctx.beginPath();
+  ctx.moveTo(38,-162);ctx.lineTo(66,-166);ctx.lineTo(86,-66);ctx.lineTo(56,-58);
+  ctx.closePath();ctx.fill();
+  const bg=ctx.createLinearGradient(-60,-60,90,-10);
+  bg.addColorStop(0,'#e8ecf4');bg.addColorStop(.6,'#aab2c4');bg.addColorStop(1,'#6d7688');
+  ctx.fillStyle=bg;
+  ctx.beginPath();
+  ctx.moveTo(80,-70);
+  ctx.quadraticCurveTo(30,-6,-64,-24);
+  ctx.quadraticCurveTo(-30,-54,10,-64);
+  ctx.quadraticCurveTo(40,-72,58,-84);
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(76,-72);ctx.quadraticCurveTo(28,-10,-58,-26);ctx.stroke();
+  ctx.fillStyle='#20263c';
+  ctx.beginPath();
+  ctx.moveTo(24,-160);ctx.quadraticCurveTo(-16,-140,-14,-96);
+  ctx.quadraticCurveTo(-12,-58,36,-52);ctx.lineTo(110,-70);
+  ctx.quadraticCurveTo(126,-130,96,-158);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#2a3150';
+  for(let i=0;i<4;i++){
+    ctx.beginPath();
+    ctx.ellipse(-4+i*4,-138+i*26,17,14,-.35,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle='#242b48';
+  ctx.beginPath();
+  ctx.ellipse(66,-158,26,15,-.5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(6,-130);ctx.quadraticCurveTo(40,-120,92,-134);ctx.stroke();
+  ctx.restore();
 }
 
-#status-notice {
-	background-color: #5b3943;
-	border-radius: 0.5rem;
-	border: 1px solid #9b3943;
-	color: #e0e0e0;
-	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
-	line-height: 1.3;
-	margin: 0 2rem;
-	overflow: hidden;
-	padding: 1rem;
-	text-align: center;
-	z-index: 1;
+// ---------- loop ----------
+let acc=0,last=performance.now();
+function frame(t){
+  acc+=Math.min(0.1,(t-last)/1000);last=t;
+  if(playing)while(acc>=TICK){tick();acc-=TICK;}
+  else acc=0;
+  render();
+  requestAnimationFrame(frame);
 }
-		</style>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+requestAnimationFrame(frame);
+</script>
 
-	</head>
-	<body>
-		<canvas id="canvas">
-			Your browser does not support the canvas tag.
-		</canvas>
-
-		<noscript>
-			Your browser does not support JavaScript.
-		</noscript>
-
-		<div id="status">
-			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
-			<progress id="status-progress"></progress>
-			<div id="status-notice"></div>
-		</div>
-
-		<script src="index.js"></script>
-		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":40784,"index.wasm":37896978},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = false;
-const engine = new Engine(GODOT_CONFIG);
-
-(function () {
-	const statusOverlay = document.getElementById('status');
-	const statusProgress = document.getElementById('status-progress');
-	const statusNotice = document.getElementById('status-notice');
-
-	let initializing = true;
-	let statusMode = '';
-
-	function setStatusMode(mode) {
-		if (statusMode === mode || !initializing) {
-			return;
-		}
-		if (mode === 'hidden') {
-			statusOverlay.remove();
-			initializing = false;
-			return;
-		}
-		statusOverlay.style.visibility = 'visible';
-		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
-		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
-		statusMode = mode;
-	}
-
-	function setStatusNotice(text) {
-		while (statusNotice.lastChild) {
-			statusNotice.removeChild(statusNotice.lastChild);
-		}
-		const lines = text.split('\n');
-		lines.forEach((line) => {
-			statusNotice.appendChild(document.createTextNode(line));
-			statusNotice.appendChild(document.createElement('br'));
-		});
-	}
-
-	function displayFailureNotice(err) {
-		console.error(err);
-		if (err instanceof Error) {
-			setStatusNotice(err.message);
-		} else if (typeof err === 'string') {
-			setStatusNotice(err);
-		} else {
-			setStatusNotice('An unknown error occurred.');
-		}
-		setStatusMode('notice');
-		initializing = false;
-	}
-
-	const missing = Engine.getMissingFeatures({
-		threads: GODOT_THREADS_ENABLED,
-	});
-
-	if (missing.length !== 0) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			let serviceWorkerRegistrationPromise;
-			try {
-				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
-			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
-			}
-			// There's a chance that installing the service worker would fix the issue
-			Promise.race([
-				serviceWorkerRegistrationPromise.then((registration) => {
-					if (registration != null) {
-						return Promise.reject(new Error('Service worker already exists.'));
-					}
-					return registration;
-				}).then(() => engine.installServiceWorker()),
-				// For some reason, `getRegistration()` can stall
-				new Promise((resolve) => {
-					setTimeout(() => resolve(), 2000);
-				}),
-			]).then(() => {
-				// Reload if there was no error.
-				window.location.reload();
-			}).catch((err) => {
-				console.error('Error while registering service worker:', err);
-			});
-		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
-		}
-	} else {
-		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-				}
-			},
-		}).then(() => {
-			setStatusMode('hidden');
-		}, displayFailureNotice);
-	}
-}());
-		</script>
-	</body>
+</body>
 </html>
-
